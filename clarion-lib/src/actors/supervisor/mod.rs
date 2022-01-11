@@ -1,7 +1,7 @@
-use crate::actors::contract_processor::ContractProcessor;
+use crate::actors::{ContractProcessor, ContractProcessorObserver};
+use crate::types::{ClarionManifest, ClarionPid, TriggerId, BitcoinPredicate};
 use clarinet_lib::types::{AccountIdentifier, StacksTransactionReceipt, StacksBlockData, BitcoinBlockData, BitcoinChainEvent, StacksChainEvent};
 use clarinet_lib::clarity_repl::clarity::types::{QualifiedContractIdentifier};
-use kompact::lookup::ActorLookup;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 use std::sync::mpsc::Sender;
@@ -12,52 +12,6 @@ use std::sync::Arc;
 use opentelemetry::{global, trace::Span};
 use opentelemetry::trace::{Tracer, SpanContext};
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct TriggerId {
-    pub pid: ClarionPid,
-    pub lambda_id: u64,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClarionManifest {
-    pub project: ProjectMetadata,
-    pub lambdas: Vec<Lambda>,
-    pub contracts: BTreeMap<QualifiedContractIdentifier, ContractSettings>,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ProjectMetadata {
-    pub name: String,
-    pub authors: Vec<String>,
-    pub homepage: String,
-    pub license: String,
-    pub description: String,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ContractSettings {
-    pub state_explorer_enabled: bool,
-    pub api_generator_enabled: Vec<String>,
-}
-
-pub enum ClarionInstanceCommand {
-    Start,
-    Stop,
-    AddLambda,
-}
-
-#[derive(Debug)]
-pub struct ClarionInstanceController {
-    pid: ClarionPid,
-    tx: Sender<ClarionInstanceCommand>,
-}
-
-impl ClarionInstanceController {
-    pub fn trigger_lambda(&self, lambda_id: u64) {
-        println!("Triggering lambda {}", lambda_id);
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum ClarionSupervisorMessage {
     RegisterManifest(ClarionManifest),
@@ -66,18 +20,14 @@ pub enum ClarionSupervisorMessage {
     Exit,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClarionPid(u64);
-
 #[derive(ComponentDefinition)]
 pub struct ClarionSupervisor {
     ctx: ComponentContext<Self>,
     units: Vec<Arc<dyn AbstractComponent<Message = f32>>>,
     instances_pool: HashSet<ClarionPid>,
-    clarion_controllers: HashMap<ClarionPid, ClarionInstanceController>,
     bitcoin_predicates: HashMap<BitcoinPredicate, Vec<TriggerId>>,
     stacks_predicates: StacksChainPredicates,
-    registered_contracts: HashSet<QualifiedContractIdentifier>,
+    registered_contracts: HashSet<String>,
     registered_manifests: HashSet<ClarionManifest>,
     trigger_history: VecDeque<(String, HashSet<TriggerId>)>,
 }
@@ -112,7 +62,7 @@ impl Actor for ClarionSupervisor {
 
         let mut span = match msg {
             ClarionSupervisorMessage::RegisterManifest(manifest) => {
-                let mut span = tracer.start("spawn contract processor");
+                let mut span = tracer.start("register_manifest");
                 self.register_manifest(manifest);
                 span
             }
@@ -127,7 +77,7 @@ impl Actor for ClarionSupervisor {
                 span
             }
             ClarionSupervisorMessage::Exit => {
-                let mut span = tracer.start("handle_shutdown");
+                let mut span = tracer.start("exit");
                 self.ctx.system().shutdown_async();
                 span
             }
@@ -152,7 +102,6 @@ impl ClarionSupervisor {
             instances_pool: HashSet::new(),
             registered_contracts: HashSet::new(),
             registered_manifests: HashSet::new(),
-            clarion_controllers: HashMap::new(),
             bitcoin_predicates: HashMap::new(),
             stacks_predicates: StacksChainPredicates::new(),
             trigger_history: VecDeque::new(),
@@ -166,10 +115,11 @@ impl ClarionSupervisor {
         }
 
         for (contract_id, settings) in manifest.contracts.iter() {
-            if self.registered_contracts.contains(contract_id) {
+            let contract_id_ser = contract_id.to_string();
+            if self.registered_contracts.contains(&contract_id_ser) {
                 self.start_contract_processor_observer(contract_id, &manifest);
             } else {
-                self.registered_contracts.insert(contract_id.clone());
+                self.registered_contracts.insert(contract_id_ser.clone());
                 self.start_contract_processor(contract_id);
             }
         } 
@@ -185,22 +135,39 @@ impl ClarionSupervisor {
 
     pub fn start_contract_processor_observer(&mut self, contract_id: &QualifiedContractIdentifier, manifest: &ClarionManifest) {
         let system = self.ctx.system();
-        let instance = system.create(ContractProcessor::new);
+        let instance = system.create(ContractProcessorObserver::new);
         system.start(&instance);
         // self.clarion_controllers.insert(pid.clone(), controller);
         // self.instances_pool.insert(pid, instance);
     }
 
     pub fn handle_stacks_chain_event(&mut self, chain_event: StacksChainEvent, span: &mut dyn Span) {
-        match chain_event {
-            StacksChainEvent::ChainUpdatedWithBlock(new_block) => {
-                let jobs = self.handle_new_stacks_block(new_block, span);
-                // todo: keep track of trigger_history.
+        let mut blocks = match chain_event {
+            StacksChainEvent::ChainUpdatedWithBlock(block) => {
+                // Send message BlockArchiverMessage::ArchiveStacksBlock(block)
+                vec![block]
             }
             StacksChainEvent::ChainUpdatedWithReorg(old_segment, new_segment) => {
-                // TODO(lgalabru): handle
-                // todo: keep track of trigger_history.
+                let blocks_ids_to_rollback = old_segment
+                    .into_iter()
+                    .map(|b| b.block_identifier)
+                    .collect::<Vec<_>>();
+                // Send message BlockArchiverMessage::RollbackStacksBlocks(blocks_ids_to_rollback)
+
+                // todo: use trigger_history to Rollback previous changes.
+                new_segment
             }
+        };
+
+        for block in blocks.iter() {
+            // Send message BlockArchiverMessage::ArchiveStacksBlock(block)
+            for tx in block.transactions.iter() {
+                let intersect = tx.metadata.receipt.mutated_contracts_radius.intersection(&self.registered_contracts);
+                for mutated_contract_id in intersect {
+                    // Send message ContractProcessor::ProcessTransaction(mutated_contract_id)
+                }
+            }
+            // todo: keep track of trigger_history.    
         }
     }
 
@@ -263,11 +230,6 @@ impl ClarionSupervisor {
             }
         }
 
-        for trigger in instances_to_trigger.iter() {
-            if let Some(controller) = self.clarion_controllers.get(&trigger.pid) {
-                controller.trigger_lambda(trigger.lambda_id);
-            }
-        }
         instances_to_trigger
     }
 
@@ -278,7 +240,7 @@ impl ClarionSupervisor {
         let mut activated_triggers = HashSet::new();
 
         
-        for contract_id in transaction_receipt.contracts_execution_radius.iter() {
+        for contract_id in transaction_receipt.mutated_contracts_radius.iter() {
             if let Some(triggers) = self
                 .stacks_predicates
                 .watching_contract_id_activity
@@ -312,68 +274,6 @@ impl StacksChainPredicates {
             watching_any_block_activity: HashSet::new(),
         }
     }
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Lambda {
-    lambda_id: u64,
-    name: String,
-    predicate: Predicate,
-    action: Action,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum Action {
-    User,
-    Platform,
-}
-
-pub enum User {
-    HTTPPost(String),
-    CodeExecution(String),
-}
-
-pub enum Platform {
-    StateExplorer,
-    ApiGenerator,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum Predicate {
-    BitcoinPredicate,
-    StacksPredicate,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum BitcoinPredicate {
-    AnyBlock,
-    AnyOperation(AccountIdentifier),
-    AnyStacksOperation(CrossStacksChainOperation, AccountIdentifier),
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum CrossStacksChainOperation {
-    Any,
-    MineBlock,
-    TransferSTX,
-    StacksSTX,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum StacksPredicate {
-    BitcoinPredicate,
-    StacksContractPredicate,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum StacksContractBasedPredicate {
-    AnyCallToContract(QualifiedContractIdentifier),
-    AnyResultFromContractCall(QualifiedContractIdentifier, String),
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum StacksOperationPredicate {
-    AnyOperation(AccountIdentifier),
 }
 
 use std::time::SystemTime;
@@ -414,8 +314,8 @@ impl Span for MockedSpan {
 
 
 fn transaction_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
-    let mut contracts_execution_radius = HashSet::new();
-    contracts_execution_radius.insert(contract_id);
+    let mut mutated_contracts_radius = HashSet::new();
+    mutated_contracts_radius.insert(contract_id);
     StacksTransactionData {
         transaction_identifier: TransactionIdentifier {
             hash: "0".into()
@@ -425,8 +325,8 @@ fn transaction_impacting_contract_id(contract_id: String, success: bool) -> Stac
             success,
             result: "".into(),
             receipt: StacksTransactionReceipt {
-                contracts_execution_radius,
-                assets_mutation_radius: HashSet::new(),
+                mutated_contracts_radius,
+                mutated_assets_radius: HashSet::new(),
                 events: vec![],
             },
             description: "".into(),
@@ -452,6 +352,7 @@ fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> StacksBl
 
 #[test]
 fn test_predicate_watching_contract_id_activity_integration() {
+    use crate::types::ClarionPid;
 
     let mut predicates = StacksChainPredicates::new();
     let contract_id: String = "STX.contract_id".into();

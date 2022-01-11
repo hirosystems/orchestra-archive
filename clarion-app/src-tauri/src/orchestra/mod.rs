@@ -34,8 +34,8 @@ pub enum FrontendCommand {
 }
 
 pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
-    use clarion_lib::actors::supervisor::{ClarionSupervisorMessage};
-    use clarion_lib::actors::supervisor::{ClarionManifest, ProjectMetadata, ContractSettings};
+    use clarion_lib::actors::{ClarionSupervisorMessage};
+    use clarion_lib::types::{ClarionManifest, ProjectMetadata, ContractSettings};
     use clarion_lib::clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
     use std::convert::TryInto;
 
@@ -54,7 +54,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     let (supervisor_tx, supervisor_rx) = channel();
 
     let handle = std::thread::spawn(|| {
-        actors::run_clarion_supervisor(supervisor_rx)
+        actors::run_supervisor(supervisor_rx)
     });
 
     let mut contracts = BTreeMap::new();

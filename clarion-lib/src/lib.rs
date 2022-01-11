@@ -13,6 +13,7 @@ pub extern crate clarinet_lib;
 
 pub mod actors;
 pub mod datastore;
+pub mod types;
 
 #[cfg(test)]
 mod tests {
