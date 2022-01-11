@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32px" height="32px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 63.1 (92452) - https://sketch.com -->
+    <title>Group Copy</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <circle id="path-1" cx="16" cy="16" r="16"></circle>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group-Copy">
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <circle stroke="#979797" cx="16" cy="16" r="15.5"></circle>
+            <path d="M32,1.42108547e-14 L32,32 L-3.67705866e-13,32 L-3.67705866e-13,1.42108547e-14 L32,1.42108547e-14 Z M23.1194575,16.8763693 L8.83046427,16.8763693 L8.83046427,18.6171209 L13.1855826,18.6171209 L10.150169,23.2029212 L12.4057243,23.2029212 L15.9689374,17.8007191 L19.5321505,23.2029212 L21.7997527,23.2029212 L18.7643392,18.6050699 L23.1194575,18.6050699 L23.1194575,16.8763693 Z M12.3696865,8.68022953 L10.1021872,8.68022953 L13.101563,13.2440363 L8.83046427,13.2440363 L8.83046427,15.0067814 L23.1194575,15.0067814 L23.1194575,13.2440363 L18.8483587,13.2440363 L21.8477345,8.68022953 L19.5802353,8.68022953 L15.9689374,14.1858036 L12.3696865,8.68022953 Z" id="Rectangle-2" fill="#FFFFFF" mask="url(#mask-2)"></path>
+            <circle id="Oval" stroke="#FFFFFF" stroke-width="50" mask="url(#mask-2)" cx="16" cy="16" r="1"></circle>
+        </g>
+    </g>
+</svg>
