@@ -35,7 +35,7 @@ pub enum FrontendCommand {
 
 pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
     use clarion_lib::actors::{ClarionSupervisorMessage};
-    use clarion_lib::types::{ClarionManifest, ProjectMetadata, ContractSettings};
+    use clarion_lib::types::{ContractsObserverConfig, ProjectMetadata, ContractSettings};
     use clarion_lib::clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
     use std::convert::TryInto;
 
@@ -68,7 +68,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     };
     contracts.insert(test_contract_id, test_contract_settings);
 
-    let clarion_manifest = ClarionManifest {
+    let clarion_manifest = ContractsObserverConfig {
         project: ProjectMetadata {
             name: "test".into(),
             authors: vec![],
@@ -79,7 +79,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
         lambdas: vec![],
         contracts,
     };
-    supervisor_tx.send(ClarionSupervisorMessage::RegisterManifest(clarion_manifest)).unwrap();
+    supervisor_tx.send(ClarionSupervisorMessage::RegisterContractsObserver(clarion_manifest)).unwrap();
 
     let frontend_commands_supervisor_tx = supervisor_tx.clone();
     std::thread::spawn(move || {

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet, HashMap};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 use clarinet_lib::types::AccountIdentifier;
 
@@ -11,8 +11,13 @@ pub struct TriggerId {
     pub lambda_id: u64,
 }
 
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
+pub struct ContractsObserverId(pub u64);
+
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClarionManifest {
+pub struct ContractsObserverConfig {
+    pub identifier: ContractsObserverId,
     pub project: ProjectMetadata,
     pub lambdas: Vec<Lambda>,
     pub contracts: BTreeMap<QualifiedContractIdentifier, ContractSettings>,
@@ -93,4 +98,26 @@ pub enum StacksContractBasedPredicate {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum StacksOperationPredicate {
     AnyOperation(AccountIdentifier),
+}
+
+pub struct StacksChainPredicates {
+    pub watching_contract_id_activity: HashMap<String, HashSet<TriggerId>>,
+    pub watching_contract_data_mutation_activity: HashMap<String, HashSet<TriggerId>>,
+    pub watching_principal_activity: HashMap<String, HashSet<TriggerId>>,
+    pub watching_ft_move_activity: HashMap<String, HashSet<TriggerId>>,
+    pub watching_nft_activity: HashMap<String, HashSet<TriggerId>>,
+    pub watching_any_block_activity: HashSet<TriggerId>,
+}
+
+impl StacksChainPredicates {
+    pub fn new() -> Self {
+        Self {
+            watching_contract_id_activity: HashMap::new(),
+            watching_contract_data_mutation_activity: HashMap::new(),
+            watching_principal_activity: HashMap::new(),
+            watching_ft_move_activity: HashMap::new(),
+            watching_nft_activity: HashMap::new(),
+            watching_any_block_activity: HashSet::new(),
+        }
+    }
 }

@@ -1,20 +1,19 @@
-use crate::actors::{ContractProcessor, ContractProcessorObserver};
-use crate::types::{ClarionManifest, ClarionPid, TriggerId, BitcoinPredicate};
-use clarinet_lib::types::{AccountIdentifier, StacksTransactionReceipt, StacksBlockData, BitcoinBlockData, BitcoinChainEvent, StacksChainEvent};
-use clarinet_lib::clarity_repl::clarity::types::{QualifiedContractIdentifier};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::hash::Hash;
-use std::sync::mpsc::Sender;
-use kompact::{component::AbstractComponent, prelude::*};
-use std::sync::Arc;
-
+use crate::actors::{ContractProcessor, ContractsObserver, BlockStoreManager,  BlockStoreManagerMessage, ContractProcessorMessage, ContractsObserverMessage};
+use crate::datastore::StorageDriver;
+use crate::types::{ContractsObserverConfig, ContractsObserverId, TriggerId, BitcoinPredicate, StacksChainPredicates};
+use clarinet_lib::types::{StacksTransactionReceipt, StacksBlockData, BitcoinBlockData, BitcoinChainEvent, StacksChainEvent, StacksTransactionData};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
+use kompact::prelude::*;
 
 use opentelemetry::{global, trace::Span};
-use opentelemetry::trace::{Tracer, SpanContext};
+use opentelemetry::trace::{Tracer};
+
+use super::contract_processor::{ContractProcessorEvent, ContractProcessorPort};
 
 #[derive(Clone, Debug)]
 pub enum ClarionSupervisorMessage {
-    RegisterManifest(ClarionManifest),
+    RegisterContractsObserver(ContractsObserverConfig),
     ProcessStacksChainEvent(StacksChainEvent),
     ProcessBitcoinChainEvent(BitcoinChainEvent),
     Exit,
@@ -23,12 +22,15 @@ pub enum ClarionSupervisorMessage {
 #[derive(ComponentDefinition)]
 pub struct ClarionSupervisor {
     ctx: ComponentContext<Self>,
-    units: Vec<Arc<dyn AbstractComponent<Message = f32>>>,
-    instances_pool: HashSet<ClarionPid>,
-    bitcoin_predicates: HashMap<BitcoinPredicate, Vec<TriggerId>>,
-    stacks_predicates: StacksChainPredicates,
+    active_contracts_processors: HashMap<String, ActorRef<ContractProcessorMessage>>,
+    active_contracts_observers: HashMap<ContractsObserverId, ActorRef<ContractsObserverMessage>>,
+    contracts_processors_subscriptions: BTreeMap<String, BTreeSet<ContractsObserverId>>,
+    block_store_manager: Option<ActorRef<BlockStoreManagerMessage>>, // Todo: switch to event instead
     registered_contracts: HashSet<String>,
-    registered_manifests: HashSet<ClarionManifest>,
+    storage_driver: StorageDriver,
+    stacks_predicates: StacksChainPredicates,
+    contract_processor_port: RequiredPort<ContractProcessorPort>,
+    bitcoin_predicates: HashMap<BitcoinPredicate, Vec<TriggerId>>,
     trigger_history: VecDeque<(String, HashSet<TriggerId>)>,
 }
 
@@ -58,12 +60,10 @@ impl Actor for ClarionSupervisor {
             .with_service_name("ClarionSupervisor")
             .install_simple().unwrap();
 
-        // let tracer = global::tracer("ClarionSupervisor");
-
         let mut span = match msg {
-            ClarionSupervisorMessage::RegisterManifest(manifest) => {
-                let mut span = tracer.start("register_manifest");
-                self.register_manifest(manifest);
+            ClarionSupervisorMessage::RegisterContractsObserver(manifest) => {
+                let mut span = tracer.start("register_contracts_observer");
+                self.register_contracts_observer(manifest);
                 span
             }
             ClarionSupervisorMessage::ProcessStacksChainEvent(event) => {
@@ -84,7 +84,6 @@ impl Actor for ClarionSupervisor {
         };
 
         span.end();
-
         Handled::Ok
     }
 
@@ -93,58 +92,123 @@ impl Actor for ClarionSupervisor {
     }
 }
 
+impl Require<ContractProcessorPort> for ClarionSupervisor {
+
+    fn handle(&mut self, event: ContractProcessorEvent) -> Handled {
+        match event {
+            ContractProcessorEvent::TransactionsBatchProcessed(contract_id) => {
+
+                let subscriptions = match self.contracts_processors_subscriptions.get(&contract_id) {
+                    Some(entry) => entry,
+                    None => unreachable!()
+                };
+
+                for observer_id in subscriptions.iter() {
+                    info!(self.ctx.log(), "Notifying contract observer");
+
+                    let worker = match self.active_contracts_observers.get(observer_id) {
+                        Some(entry) => entry,
+                        None => unreachable!(),
+                    };
+                    worker.tell(ContractsObserverMessage::ProcessChain);
+                }
+            }
+        }
+        Handled::Ok
+    }
+}
+
 impl ClarionSupervisor {
-    pub fn new() -> Self {
+    pub fn new(storage_driver: StorageDriver) -> Self {
         global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
         Self {
             ctx: ComponentContext::uninitialised(),
-            units: vec![],    
-            instances_pool: HashSet::new(),
+            contract_processor_port: RequiredPort::uninitialised(),
             registered_contracts: HashSet::new(),
-            registered_manifests: HashSet::new(),
             bitcoin_predicates: HashMap::new(),
             stacks_predicates: StacksChainPredicates::new(),
             trigger_history: VecDeque::new(),
+            storage_driver,
+            block_store_manager: None,
+            active_contracts_processors: HashMap::new(),
+            active_contracts_observers: HashMap::new(),
+            contracts_processors_subscriptions: BTreeMap::new(),
         }
     }
 
-    pub fn register_manifest(&mut self, manifest: ClarionManifest) {
+    pub fn register_contracts_observer(&mut self, observer_config: ContractsObserverConfig) {
 
-        if self.registered_manifests.contains(&manifest) {
+        let observer_identifier = &observer_config.identifier;
+
+        if self.active_contracts_observers.contains_key(&observer_identifier) {
+            // todo: or maybe reboot process instead?
             return
+        } else {
+            self.start_contracts_observer(&observer_config);
         }
 
-        for (contract_id, settings) in manifest.contracts.iter() {
+        for (contract_id, settings) in observer_config.contracts.iter() {
             let contract_id_ser = contract_id.to_string();
-            if self.registered_contracts.contains(&contract_id_ser) {
-                self.start_contract_processor_observer(contract_id, &manifest);
-            } else {
+            if !self.registered_contracts.contains(&contract_id_ser) {
                 self.registered_contracts.insert(contract_id_ser.clone());
-                self.start_contract_processor(contract_id);
+                self.start_contract_processor(contract_id_ser.clone());
             }
-        } 
+            let worker = match self.active_contracts_processors.get(&contract_id_ser) {
+                Some(worker) => worker,
+                None => unreachable!()
+            };
+
+            // todo: boot worker?
+
+            match self.contracts_processors_subscriptions.entry(contract_id_ser) {
+                Entry::Occupied(observers) => {
+                    observers.into_mut().insert(observer_identifier.clone());
+                }
+                Entry::Vacant(entry) => {
+                    let mut observers = BTreeSet::new();
+                    observers.insert(observer_identifier.clone());
+                    entry.insert(observers);
+                }
+            };
+        }
     }
 
-    pub fn start_contract_processor(&mut self, contract_id: &QualifiedContractIdentifier) {
+    pub fn start_contract_processor(&mut self, contract_id: String) {
         let system = self.ctx.system();
-        let instance = system.create(ContractProcessor::new);
-        system.start(&instance);
-        // self.clarion_controllers.insert(pid.clone(), controller);
-        // self.instances_pool.insert(pid, instance);
+        let worker = system.create(|| ContractProcessor::new(self.storage_driver.clone(), contract_id.clone()));
+        worker.connect_to_required(self.contract_processor_port.share());
+        system.start(&worker);
+        self.active_contracts_processors.insert(contract_id, worker.actor_ref());
     }
 
-    pub fn start_contract_processor_observer(&mut self, contract_id: &QualifiedContractIdentifier, manifest: &ClarionManifest) {
+    pub fn start_contracts_observer(&mut self, observer_config: &ContractsObserverConfig) {
         let system = self.ctx.system();
-        let instance = system.create(ContractProcessorObserver::new);
-        system.start(&instance);
-        // self.clarion_controllers.insert(pid.clone(), controller);
-        // self.instances_pool.insert(pid, instance);
+        let worker = system.create(|| ContractsObserver::new(self.storage_driver.clone(), observer_config.clone()));
+        system.start(&worker);
+        self.active_contracts_observers.insert(observer_config.identifier.clone(), worker.actor_ref());
+    }
+
+    pub fn start_block_store_manager(&mut self) {
+        let system = self.ctx.system();
+        let worker = system.create(|| BlockStoreManager::new(self.storage_driver.clone()));
+        system.start(&worker);
+        self.block_store_manager = Some(worker.actor_ref());
     }
 
     pub fn handle_stacks_chain_event(&mut self, chain_event: StacksChainEvent, span: &mut dyn Span) {
-        let mut blocks = match chain_event {
+
+        if self.block_store_manager.is_none() {
+            self.start_block_store_manager();
+        }
+
+        let worker = match self.block_store_manager {
+            Some(ref worker_ref) => worker_ref,
+            None => unreachable!()
+        };
+
+        let blocks = match chain_event {
             StacksChainEvent::ChainUpdatedWithBlock(block) => {
-                // Send message BlockArchiverMessage::ArchiveStacksBlock(block)
+                // Send message BlockStoreManagerMessage::ArchiveStacksBlock(block)
                 vec![block]
             }
             StacksChainEvent::ChainUpdatedWithReorg(old_segment, new_segment) => {
@@ -152,7 +216,9 @@ impl ClarionSupervisor {
                     .into_iter()
                     .map(|b| b.block_identifier)
                     .collect::<Vec<_>>();
-                // Send message BlockArchiverMessage::RollbackStacksBlocks(blocks_ids_to_rollback)
+
+                // Send message BlockStoreManagerMessage::RollbackStacksBlocks
+                worker.tell(BlockStoreManagerMessage::RollbackStacksBlocks(blocks_ids_to_rollback));
 
                 // todo: use trigger_history to Rollback previous changes.
                 new_segment
@@ -160,12 +226,31 @@ impl ClarionSupervisor {
         };
 
         for block in blocks.iter() {
-            // Send message BlockArchiverMessage::ArchiveStacksBlock(block)
+            // Send message BlockStoreManagerMessage::ArchiveStacksBlock(block)
+            worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(block.clone()));
+
+            let mut transactions_batches: BTreeMap<&str, Vec<StacksTransactionData>> = BTreeMap::new();
             for tx in block.transactions.iter() {
                 let intersect = tx.metadata.receipt.mutated_contracts_radius.intersection(&self.registered_contracts);
                 for mutated_contract_id in intersect {
-                    // Send message ContractProcessor::ProcessTransaction(mutated_contract_id)
+                    match transactions_batches.entry(mutated_contract_id) {
+                        Entry::Occupied(transactions) => {
+                            transactions.into_mut().push(tx.clone());
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(vec![tx.clone()]);
+                        }
+                    };
                 }
+            }
+
+            for (contract_id, batch) in transactions_batches.into_iter() {
+                let worker = match self.active_contracts_processors.get(contract_id) {
+                    Some(worker) => worker,
+                    None => unreachable!()
+                };
+                info!(self.log(), "Spawning batch");
+                worker.tell(ContractProcessorMessage::ProcessTransactionsBatch(batch));
             }
             // todo: keep track of trigger_history.    
         }
@@ -254,126 +339,34 @@ impl ClarionSupervisor {
     }
 }
 
-pub struct StacksChainPredicates {
-    pub watching_contract_id_activity: HashMap<String, HashSet<TriggerId>>,
-    pub watching_contract_data_mutation_activity: HashMap<String, HashSet<TriggerId>>,
-    pub watching_principal_activity: HashMap<String, HashSet<TriggerId>>,
-    pub watching_ft_move_activity: HashMap<String, HashSet<TriggerId>>,
-    pub watching_nft_activity: HashMap<String, HashSet<TriggerId>>,
-    pub watching_any_block_activity: HashSet<TriggerId>,
+#[cfg(test)]
+mod tests {
+    use crate::types::{ClarionPid, StacksChainPredicates, TriggerId};
+    use std::collections::HashSet;
+    
+    // #[test]
+    // fn test_predicate_watching_contract_id_activity_integration() {
+
+    //     let mut predicates = StacksChainPredicates::new();
+    //     let contract_id: String = "STX.contract_id".into();
+    //     let mut triggers = HashSet::new();
+    //     let trigger_101 = TriggerId { pid: ClarionPid(1), lambda_id: 1 };
+    //     triggers.insert(trigger_101.clone());
+    //     predicates.watching_contract_id_activity.insert(contract_id.clone(), triggers);
+
+    //     let mut supervisor = ClarionSupervisor::new();
+    //     supervisor.register_predicates(predicates);
+
+    //     let block = block_with_transactions(vec![
+    //         transaction_impacting_contract_id(contract_id.clone(), true)
+    //     ]);
+    //     let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
+    //     assert!(res.contains(&trigger_101));
+
+    //     let block = block_with_transactions(vec![
+    //         transaction_impacting_contract_id(contract_id.clone(), false)
+    //     ]);
+    //     let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
+    //     assert!(res.is_empty());
+    // }
 }
-
-impl StacksChainPredicates {
-    pub fn new() -> Self {
-        Self {
-            watching_contract_id_activity: HashMap::new(),
-            watching_contract_data_mutation_activity: HashMap::new(),
-            watching_principal_activity: HashMap::new(),
-            watching_ft_move_activity: HashMap::new(),
-            watching_nft_activity: HashMap::new(),
-            watching_any_block_activity: HashSet::new(),
-        }
-    }
-}
-
-use std::time::SystemTime;
-use opentelemetry::{KeyValue};
-use opentelemetry::trace::{StatusCode};
-use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksTransactionData, TransactionIdentifier, StacksTransactionMetadata};
-
-#[derive(Debug)]
-struct MockedSpan {
-    context: SpanContext
-}
-
-impl MockedSpan {
-    pub fn new() -> MockedSpan {
-        MockedSpan {
-            context: SpanContext::empty_context(),
-        }
-    }
-}
-
-impl Span for MockedSpan {
-    fn add_event_with_timestamp(
-        &mut self,
-        _name: String,
-        _timestamp: SystemTime,
-        _attributes: Vec<KeyValue>,
-    ) {}
-    fn span_context(&self) -> &SpanContext {
-        return &self.context
-    }
-    fn is_recording(&self) -> bool { true }
-    fn set_attribute(&mut self, _attribute: KeyValue) {}
-    fn set_status(&mut self, _code: StatusCode, _message: String) {}
-    fn update_name(&mut self, _new_name: String) {}
-    fn end(&mut self) {}
-    fn end_with_timestamp(&mut self, _timestamp: SystemTime) {}
-}
-
-
-fn transaction_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
-    let mut mutated_contracts_radius = HashSet::new();
-    mutated_contracts_radius.insert(contract_id);
-    StacksTransactionData {
-        transaction_identifier: TransactionIdentifier {
-            hash: "0".into()
-        },
-        operations: vec![],
-        metadata: StacksTransactionMetadata {
-            success,
-            result: "".into(),
-            receipt: StacksTransactionReceipt {
-                mutated_contracts_radius,
-                mutated_assets_radius: HashSet::new(),
-                events: vec![],
-            },
-            description: "".into(),
-        }
-    }
-}
-
-fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> StacksBlockData {
-    StacksBlockData {
-        block_identifier: BlockIdentifier { index: 1, hash: "1".into() },
-        parent_block_identifier: BlockIdentifier { index: 0, hash: "0".into() },
-        timestamp: 0,
-        transactions,
-        metadata: StacksBlockMetadata { 
-            bitcoin_anchor_block_identifier: BlockIdentifier { index: 0, hash: "0".into() }, 
-            pox_cycle_index: 0, 
-            pox_cycle_position: 0,
-            pox_cycle_length: 0 
-        }
-    }
-}
-
-
-#[test]
-fn test_predicate_watching_contract_id_activity_integration() {
-    use crate::types::ClarionPid;
-
-    let mut predicates = StacksChainPredicates::new();
-    let contract_id: String = "STX.contract_id".into();
-    let mut triggers = HashSet::new();
-    let trigger_101 = TriggerId { pid: ClarionPid(1), lambda_id: 1 };
-    triggers.insert(trigger_101.clone());
-    predicates.watching_contract_id_activity.insert(contract_id.clone(), triggers);
-
-    let mut supervisor = ClarionSupervisor::new();
-    supervisor.register_predicates(predicates);
-
-    let block = block_with_transactions(vec![
-        transaction_impacting_contract_id(contract_id.clone(), true)
-    ]);
-    let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
-    assert!(res.contains(&trigger_101));
-
-    let block = block_with_transactions(vec![
-        transaction_impacting_contract_id(contract_id.clone(), false)
-    ]);
-    let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
-    assert!(res.is_empty());
-}
-
