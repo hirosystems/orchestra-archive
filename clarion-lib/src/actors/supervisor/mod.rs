@@ -96,7 +96,7 @@ impl Require<ContractProcessorPort> for ClarionSupervisor {
 
     fn handle(&mut self, event: ContractProcessorEvent) -> Handled {
         match event {
-            ContractProcessorEvent::TransactionsBatchProcessed(contract_id) => {
+            ContractProcessorEvent::TransactionsBatchProcessed(contract_id, events) => {
 
                 let subscriptions = match self.contracts_processors_subscriptions.get(&contract_id) {
                     Some(entry) => entry,
@@ -207,17 +207,13 @@ impl ClarionSupervisor {
         };
 
         let blocks = match chain_event {
-            StacksChainEvent::ChainUpdatedWithBlock(block) => {
-                // Send message BlockStoreManagerMessage::ArchiveStacksBlock(block)
-                vec![block]
-            }
+            StacksChainEvent::ChainUpdatedWithBlock(block) => vec![block],
             StacksChainEvent::ChainUpdatedWithReorg(old_segment, new_segment) => {
                 let blocks_ids_to_rollback = old_segment
                     .into_iter()
                     .map(|b| b.block_identifier)
                     .collect::<Vec<_>>();
 
-                // Send message BlockStoreManagerMessage::RollbackStacksBlocks
                 worker.tell(BlockStoreManagerMessage::RollbackStacksBlocks(blocks_ids_to_rollback));
 
                 // todo: use trigger_history to Rollback previous changes.
@@ -257,13 +253,33 @@ impl ClarionSupervisor {
     }
 
     pub fn handle_bitcoin_chain_event(&mut self, chain_event: BitcoinChainEvent) {
-        match chain_event {
-            BitcoinChainEvent::ChainUpdatedWithBlock(new_block) => {
-                let jobs = self.handle_new_bitcoin_block(new_block);
-            }
+        if self.block_store_manager.is_none() {
+            self.start_block_store_manager();
+        }
+
+        let worker = match self.block_store_manager {
+            Some(ref worker_ref) => worker_ref,
+            None => unreachable!()
+        };
+
+        let blocks = match chain_event {
+            BitcoinChainEvent::ChainUpdatedWithBlock(block) => vec![block],
             BitcoinChainEvent::ChainUpdatedWithReorg(old_segment, new_segment) => {
-                // TODO(lgalabru): handle
+                let blocks_ids_to_rollback = old_segment
+                    .into_iter()
+                    .map(|b| b.block_identifier)
+                    .collect::<Vec<_>>();
+
+                worker.tell(BlockStoreManagerMessage::RollbackBitcoinBlocks(blocks_ids_to_rollback));
+
+                // todo: use trigger_history to Rollback previous changes.
+                new_segment
             }
+        };
+
+        for block in blocks.iter() {
+            // Send message BlockStoreManagerMessage::ArchiveStacksBlock(block)
+            worker.tell(BlockStoreManagerMessage::ArchiveBitcoinBlock(block.clone()));
         }
     }
 
@@ -358,13 +374,13 @@ mod tests {
     //     supervisor.register_predicates(predicates);
 
     //     let block = block_with_transactions(vec![
-    //         transaction_impacting_contract_id(contract_id.clone(), true)
+    //         transaction_contract_call_impacting_contract_id(contract_id.clone(), true)
     //     ]);
     //     let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
     //     assert!(res.contains(&trigger_101));
 
     //     let block = block_with_transactions(vec![
-    //         transaction_impacting_contract_id(contract_id.clone(), false)
+    //         transaction_contract_call_impacting_contract_id(contract_id.clone(), false)
     //     ]);
     //     let res = supervisor.handle_new_stacks_block(block, &mut MockedSpan::new());
     //     assert!(res.is_empty());

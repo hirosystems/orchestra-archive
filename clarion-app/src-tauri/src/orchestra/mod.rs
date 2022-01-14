@@ -7,6 +7,7 @@ use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self
 use clarion_lib::actors::{self};
 use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::ContractInterface;
 
+use clarion_lib::datastore::StorageDriver;
 use tungstenite::{
     accept_hdr,
     handshake::server::{Request, Response},
@@ -35,7 +36,7 @@ pub enum FrontendCommand {
 
 pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
     use clarion_lib::actors::{ClarionSupervisorMessage};
-    use clarion_lib::types::{ContractsObserverConfig, ProjectMetadata, ContractSettings};
+    use clarion_lib::types::{ContractsObserverConfig, ProjectMetadata, ContractSettings, ContractsObserverId};
     use clarion_lib::clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
     use std::convert::TryInto;
 
@@ -54,7 +55,8 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     let (supervisor_tx, supervisor_rx) = channel();
 
     let handle = std::thread::spawn(|| {
-        actors::run_supervisor(supervisor_rx)
+        let storage_driver = StorageDriver::tmpfs();
+        actors::run_supervisor(storage_driver, supervisor_rx)
     });
 
     let mut contracts = BTreeMap::new();
@@ -69,6 +71,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     contracts.insert(test_contract_id, test_contract_settings);
 
     let clarion_manifest = ContractsObserverConfig {
+        identifier: ContractsObserverId(1),
         project: ProjectMetadata {
             name: "test".into(),
             authors: vec![],

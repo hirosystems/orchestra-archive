@@ -1,9 +1,9 @@
-use clarinet_lib::types::{StacksBlockData, BitcoinBlockData, BlockIdentifier};
+use clarinet_lib::types::{StacksBlockData, BitcoinBlockData, BlockIdentifier, StacksTransactionKind, TransactionIdentifier};
 use kompact::prelude::*;
 use opentelemetry::trace::{Tracer, Span};
 use opentelemetry::global;
 use crate::datastore::StorageDriver;
-use rocksdb::{DB, Options, ColumnFamily};
+use rocksdb::{DB};
 use serde_json;
 
 #[derive(Clone, Debug)]
@@ -14,6 +14,17 @@ pub enum BlockStoreManagerMessage {
     RollbackStacksBlocks(Vec<BlockIdentifier>),
     Exit,
 }
+
+use serde::{self, Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ContractInstanciation {
+    /// Also known as the block height.
+    pub block_identifier: BlockIdentifier,
+    pub tx_identifier: TransactionIdentifier,
+    pub code: String,
+}
+
 
 #[derive(ComponentDefinition)]
 pub struct BlockStoreManager {
@@ -38,6 +49,8 @@ impl BlockStoreManager {
                 path.push("bitcoin");
                 let db = DB::open_default(path).unwrap();
                 db.put(block.block_identifier.hash.as_bytes(), block_bytes).unwrap();
+                db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
+                db.put(vec![0], "hello world".as_bytes()).unwrap();
             }
         }
     }
@@ -49,10 +62,25 @@ impl BlockStoreManager {
                 let mut path = config.working_dir.clone();
                 path.push("stacks");
                 let db = DB::open_default(path).unwrap();
-                // let inserts = vec![
-                //     (ColumnFamily)
-                // ];
+
+                for tx in block.transactions.iter() {
+                    match tx.metadata.kind {
+                        StacksTransactionKind::ContractDeployment(ref data) => {
+                            let contract_instanciation = ContractInstanciation {
+                                block_identifier: block.block_identifier.clone(),
+                                tx_identifier: tx.transaction_identifier.clone(),
+                                code: data.code.clone()
+                            };
+                            let contract_instanciation_bytes = serde_json::to_vec(&contract_instanciation).expect("Unable to serialize block");
+                            db.put(data.contract_identifier.as_bytes(), contract_instanciation_bytes).unwrap();
+                        }
+                        _ => {}
+                    };
+                }
+
                 db.put(block.block_identifier.hash.as_bytes(), block_bytes).unwrap();
+                db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
+
                 // Keep a pair: contract_id: block_hash.
                 // In order to ease future contract instanciation.
                 // Keep a version of the schema: b3k:01:{block_hash} -> block_data
@@ -83,6 +111,7 @@ impl BlockStoreManager {
                 path.push("stacks");
                 let db = DB::open_default(path).unwrap();
                 for block_id in block_ids.iter() {
+                    // todo(lgalabru): remove contracts
                     db.delete(block_id.hash.as_bytes()).unwrap();
                 }
             }
@@ -106,7 +135,7 @@ impl Actor for BlockStoreManager {
         info!(self.ctx.log(), "BlockStoreManager received message");
 
         let tracer = opentelemetry_jaeger::new_pipeline()
-            .with_service_name("ContractProcessor")
+            .with_service_name("BlockStoreManager")
             .install_simple().unwrap();
         let mut span = tracer.start("handle message");
 

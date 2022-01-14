@@ -42,8 +42,7 @@ mod test {
         fn end_with_timestamp(&mut self, _timestamp: SystemTime) {}
     }
 
-
-    fn transaction_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
+    fn transaction_contract_call_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
         let mut mutated_contracts_radius = HashSet::new();
         mutated_contracts_radius.insert(contract_id);
         StacksTransactionData {
@@ -51,6 +50,12 @@ mod test {
                 hash: "0".into()
             },
             operations: vec![],
+            raw_tx: "0x00".to_string(),
+            execution_cost: None,
+            sender: "".into(),
+            fee: 0,
+            sponsor: None,
+            kind: StacksTransactionKind::ContractCall,
             metadata: StacksTransactionMetadata {
                 success,
                 result: "".into(),

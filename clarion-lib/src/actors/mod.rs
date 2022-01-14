@@ -59,9 +59,10 @@ pub async fn do_run_supervisor(
 mod test {
 
     use std::time::SystemTime;
+    use clarinet_lib::types::events::StacksTransactionEvent;
     use opentelemetry::{KeyValue};
     use opentelemetry::trace::{StatusCode, Span, SpanContext};
-    use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksBlockData, StacksTransactionData, TransactionIdentifier, StacksTransactionMetadata, StacksTransactionReceipt};
+    use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksBlockData, StacksTransactionData, StacksTransactionKind, StacksTransactionExecutionCost, TransactionIdentifier, StacksTransactionMetadata, StacksTransactionReceipt, StacksContractDeploymentData};
     use std::collections::HashSet;
     use crate::datastore::StorageDriver;
     use crate::actors::{ClarionSupervisorMessage};
@@ -97,8 +98,7 @@ mod test {
         fn end_with_timestamp(&mut self, _timestamp: SystemTime) {}
     }
 
-
-    fn transaction_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
+    fn transaction_contract_call_impacting_contract_id(contract_id: String, success: bool) -> StacksTransactionData {
         let mut mutated_contracts_radius = HashSet::new();
         mutated_contracts_radius.insert(contract_id);
         StacksTransactionData {
@@ -109,6 +109,12 @@ mod test {
             metadata: StacksTransactionMetadata {
                 success,
                 result: "".into(),
+                raw_tx: "0x00".to_string(),
+                execution_cost: None,
+                sender: "".into(),
+                fee: 0,
+                sponsor: None,
+                kind: StacksTransactionKind::ContractCall,
                 receipt: StacksTransactionReceipt {
                     mutated_contracts_radius,
                     mutated_assets_radius: HashSet::new(),
@@ -118,6 +124,37 @@ mod test {
             }
         }
     }
+
+    fn transaction_contract_deployment(contract_id: String, code: &str) -> StacksTransactionData {
+        let mut mutated_contracts_radius = HashSet::new();
+        mutated_contracts_radius.insert(contract_id.clone());
+        StacksTransactionData {
+            transaction_identifier: TransactionIdentifier {
+                hash: "0".into()
+            },
+            operations: vec![],
+            metadata: StacksTransactionMetadata {
+                success: true,
+                result: "".into(),
+                raw_tx: "0x00".to_string(),
+                execution_cost: None,
+                sender: "".into(),
+                fee: 0,
+                sponsor: None,
+                kind: StacksTransactionKind::ContractDeployment(StacksContractDeploymentData {
+                    contract_identifier: contract_id,
+                    code: code.to_string(),
+                }),
+                receipt: StacksTransactionReceipt {
+                    mutated_contracts_radius,
+                    mutated_assets_radius: HashSet::new(),
+                    events: vec![],
+                },
+                description: "".into(),
+            }
+        }
+    }
+
 
     fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> StacksBlockData {
         StacksBlockData {
@@ -140,6 +177,7 @@ mod test {
         use crate::types::{ContractSettings, ContractsObserverConfig, ProjectMetadata, ContractsObserverId};
         use crate::actors::run_supervisor;
         use clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
+        use clarinet_lib::types::events::*;
         use clarinet_lib::types::StacksChainEvent;
         use std::collections::{BTreeMap};
         use std::convert::TryInto;
@@ -178,20 +216,149 @@ mod test {
             contracts,
         };
 
-        tx.send(ClarionSupervisorMessage::RegisterContractsObserver(clarion_manifest)).unwrap();
-
         let block = block_with_transactions(vec![
-            transaction_impacting_contract_id(test_contract_id.to_string(), false)
+            transaction_contract_deployment(test_contract_id.to_string(), "(print \"hello world\")")
         ]);
         tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
 
         let delay = time::Duration::from_millis(100);
-        let now = time::Instant::now();
         thread::sleep(delay);
+
+        tx.send(ClarionSupervisorMessage::RegisterContractsObserver(clarion_manifest)).unwrap();
+
+        let mut transaction = transaction_contract_call_impacting_contract_id(test_contract_id.to_string(), true);
+        transaction.metadata.receipt.events.append(&mut vec![
+            StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
+                var: "name".into(),
+                new_value: "1".into(),
+                contract_identifier: test_contract_id.to_string()
+            }),
+            StacksTransactionEvent::DataMapInsertEvent(
+                DataMapInsertEventData {
+                    map: "map-1".into(),
+                    inserted_key: "k1".into(),
+                    inserted_value: "v1".into(),
+                    contract_identifier: test_contract_id.to_string()
+                }
+            ),
+            StacksTransactionEvent::DataMapInsertEvent(
+                DataMapInsertEventData {
+                    map: "map-1".into(),
+                    inserted_key: "k2".into(),
+                    inserted_value: "v2".into(),
+                    contract_identifier: test_contract_id.to_string()
+                }
+            ),
+            StacksTransactionEvent::DataMapInsertEvent(
+                DataMapInsertEventData {
+                    map: "map-1".into(),
+                    inserted_key: "k3".into(),
+                    inserted_value: "v3".into(),
+                    contract_identifier: test_contract_id.to_string()
+                }
+            ),
+            StacksTransactionEvent::DataMapUpdateEvent(
+                DataMapUpdateEventData {
+                    map: "map-1".into(),
+                    key: "k2".into(),
+                    new_value: "v4".into(),
+                    contract_identifier: test_contract_id.to_string()
+                }
+            ),
+            StacksTransactionEvent::DataMapDeleteEvent(
+                DataMapDeleteEventData {
+                    map: "map-1".into(),
+                    deleted_key: "k3".into(),
+                    contract_identifier: test_contract_id.to_string()
+                }
+            ),
+            StacksTransactionEvent::FTMintEvent(
+                FTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
+                    amount: "100".into(),
+                }
+            ),
+            StacksTransactionEvent::FTMintEvent(
+                FTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
+                    amount: "1".into(),
+                }
+            ),
+            StacksTransactionEvent::FTMintEvent(
+                FTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
+                    amount: "10000000".into(),
+                }
+            ),
+            StacksTransactionEvent::FTBurnEvent(
+                FTBurnEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
+                    amount: "1".into(),
+                }
+            ),
+            StacksTransactionEvent::FTTransferEvent(
+                FTTransferEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
+                    amount: "100".into(),
+                }
+            ),
+            StacksTransactionEvent::NFTMintEvent(
+                NFTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
+                    asset_identifier: "A".into(),
+                }
+            ),
+            StacksTransactionEvent::NFTMintEvent(
+                NFTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
+                    asset_identifier: "B".into(),
+                }
+            ),
+            StacksTransactionEvent::NFTMintEvent(
+                NFTMintEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
+                    asset_identifier: "C".into(),
+                }
+            ),
+            StacksTransactionEvent::NFTBurnEvent(
+                NFTBurnEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
+                    asset_identifier: "B".into(),
+                }
+            ),
+            StacksTransactionEvent::NFTTransferEvent(
+                NFTTransferEventData {
+                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
+                    recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
+                    asset_identifier: "A".into(),
+                }
+            ),
+        ]);
+        let block = block_with_transactions(vec![
+            transaction
+        ]);
+        tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
+
+        let delay = time::Duration::from_millis(100);
+        thread::sleep(delay);
+
+        let delay = time::Duration::from_millis(100);
+        thread::sleep(delay);
+
 
         tx.send(ClarionSupervisorMessage::Exit).unwrap();
 
         let _res = handle.join().unwrap();
     }
 }
-
