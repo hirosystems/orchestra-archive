@@ -1,12 +1,11 @@
 import React from 'react'
 import './App.css'
 import HiroIcon from './hiro.svg'
-import Data from './Data'
+import State from './State'
 import {ThemeProvider, BaseStyles, Box, Text} from '@primer/react'
 import {Heading, UnderlineNav, StyledOcticon} from '@primer/react'
 import {VersionsIcon, DatabaseIcon, GearIcon, BroadcastIcon } from '@primer/octicons-react'
 import {SocketProvider} from './components/SocketProvider';
-import {BlockHeader} from './components/BlockHeader';
 
 function App() {
   return (
@@ -18,7 +17,7 @@ function App() {
           </Box>
           <Box>
             <UnderlineNav aria-label="Main">
-              <UnderlineNav.Link href="#data" style={{ width: 112 }}>
+              <UnderlineNav.Link href="#state" style={{ width: 112 }} selected>
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={VersionsIcon} />
                 <Text>State</Text>
               </UnderlineNav.Link>
@@ -30,14 +29,13 @@ function App() {
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={DatabaseIcon} />
                 <Text>Collections</Text>
               </UnderlineNav.Link>
-              <UnderlineNav.Link href="#settings" style={{ width: 112 }} selected>
+              <UnderlineNav.Link href="#settings" style={{ width: 112 }}>
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={GearIcon} />
                 <Text>Settings</Text>
               </UnderlineNav.Link>
             </UnderlineNav>
           </Box>
-          <BlockHeader/>
-          <Data></Data>
+          <State></State>
         </BaseStyles>
       </ThemeProvider>
     </SocketProvider>
