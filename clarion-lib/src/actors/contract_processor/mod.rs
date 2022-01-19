@@ -8,6 +8,7 @@ use kompact::prelude::*;
 use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer};
 use rocksdb::{Options, DB};
+use crate::datastore::contracts::{db_key, DBKey, contract_db};
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -55,14 +56,6 @@ pub enum Changes <'a> {
 
 ignore_requests!(ContractProcessorPort, ContractProcessor);
 
-pub enum DBKey <'a> {
-    FullAnalysis,
-    Var(&'a str),
-    Map(&'a str, &'a str),
-    FT(&'a str, &'a str),
-    NFT(&'a str, &'a str),
-}
-
 impl ContractProcessor {
     pub fn new(storage_driver: StorageDriver, contract_id: String) -> Self {
         global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
@@ -74,81 +67,69 @@ impl ContractProcessor {
         }
     }
 
-    fn db_readwrite(&self) -> DB {
-        let mut path = match self.storage_driver {
-            StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
-        };
-        path.push("contracts");
-        path.push(&self.contract_id);
-        let db = DB::open_default(path).unwrap();
-        db
-    }
-
     fn db_key(&self, key: DBKey) -> Vec<u8> {
-        match key {
-            DBKey::FullAnalysis => format!("{}::analysis", self.contract_id).as_bytes().to_vec(),
-            DBKey::Var(var) => format!("{}::var::{}", self.contract_id, var).as_bytes().to_vec(),
-            DBKey::Map(map, key) => format!("{}::map::{}::{}", self.contract_id, map, key).as_bytes().to_vec(),
-            DBKey::FT(ft, owner) => format!("{}::ft::{}", ft, owner).as_bytes().to_vec(),
-            DBKey::NFT(nft, owner) => format!("{}::nft::{}", nft, owner).as_bytes().to_vec(),
-        }
+        db_key(key, &self.contract_id)
     }
 
     pub fn build_state(&mut self) {
-        let mut working_dir = match self.storage_driver {
-            StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
-        };
-        working_dir.push("stacks");
-        let options = Options::default();
-        let contract_id = self.contract_id.clone();
-        let db = DB::open_for_read_only(&options, working_dir, true).unwrap();
 
-        // Get dependencies
-        let mut interpreter =
-            ClarityInterpreter::new(StandardPrincipalData::transient(), 2, vec![]);
-
-        let mut contracts: BTreeMap<String, ContractInstanciation> = BTreeMap::new();
-        let mut dependencies: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let mut queue = VecDeque::new();
-
-        queue.push_front(contract_id.clone());
-
-        while let Some(contract_id) = queue.pop_front() {
-            let (_, deps) = match contracts.get(&contract_id) {
-                Some(entry) => (entry.clone(), Vec::new()),
-                None => {
-                    let bytes = db
-                        .get(&contract_id.as_bytes())
-                        .expect("Unable to hit contract storage")
-                        .expect("Unable to retrieve contract");
-                    let contract_instance = serde_json::from_slice::<ContractInstanciation>(&bytes)
-                        .expect("Unable to deserialize contract");
-
-                    let deps = interpreter
-                        .detect_dependencies(
-                            contract_id.to_string(),
-                            contract_instance.code.clone(),
-                        )
-                        .expect("Unable to retrieve contract dependencies");
-
-                    contracts.insert(contract_id.to_string(), contract_instance.clone());
-                    (contract_instance, deps)
-                }
+        let (contracts, dependencies) = {
+            let mut working_dir = match self.storage_driver {
+                StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
             };
-
-            if deps.len() > 0 {
-                dependencies.insert(
-                    contract_id.to_string(),
-                    deps.clone().into_iter().map(|c| c.to_string()).collect(),
-                );
-                for contract_id in deps.into_iter() {
+            working_dir.push("stacks");
+            let options = Options::default();
+            let contract_id = self.contract_id.clone();
+            let db = DB::open_for_read_only(&options, working_dir, true).unwrap();
+    
+            // Get dependencies
+            let mut interpreter =
+                ClarityInterpreter::new(StandardPrincipalData::transient(), 2, vec![]);
+    
+            let mut contracts: BTreeMap<String, ContractInstanciation> = BTreeMap::new();
+            let mut dependencies: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            let mut queue = VecDeque::new();
+    
+            queue.push_front(contract_id.clone());
+    
+            while let Some(contract_id) = queue.pop_front() {
+                let (_, deps) = match contracts.get(&contract_id) {
+                    Some(entry) => (entry.clone(), Vec::new()),
+                    None => {
+                        let bytes = db
+                            .get(&contract_id.as_bytes())
+                            .expect("Unable to hit contract storage")
+                            .expect("Unable to retrieve contract");
+                        let contract_instance = serde_json::from_slice::<ContractInstanciation>(&bytes)
+                            .expect("Unable to deserialize contract");
+    
+                        let deps = interpreter
+                            .detect_dependencies(
+                                contract_id.to_string(),
+                                contract_instance.code.clone(),
+                            )
+                            .expect("Unable to retrieve contract dependencies");
+    
+                        contracts.insert(contract_id.to_string(), contract_instance.clone());
+                        (contract_instance, deps)
+                    }
+                };
+    
+                if deps.len() > 0 {
+                    dependencies.insert(
+                        contract_id.to_string(),
+                        deps.clone().into_iter().map(|c| c.to_string()).collect(),
+                    );
+                    for contract_id in deps.into_iter() {
+                        queue.push_back(contract_id.to_string());
+                    }
                     queue.push_back(contract_id.to_string());
+                } else {
+                    dependencies.insert(contract_id.to_string(), vec![]);
                 }
-                queue.push_back(contract_id.to_string());
-            } else {
-                dependencies.insert(contract_id.to_string(), vec![]);
             }
-        }
+            (contracts, dependencies)
+        };
 
         // Order the graph
         let ordered_contracts_ids = clarinet_lib::utils::order_contracts(&dependencies);
@@ -223,7 +204,7 @@ impl ContractProcessor {
 
         // Store artifacts
         {
-            let db = self.db_readwrite();
+            let db = contract_db(&self.storage_driver, &self.contract_id);
             let full_analysis_bytes = serde_json::to_vec(&full_analysis).expect("Unable to serialize block");
             db.put(&self.db_key(DBKey::FullAnalysis), full_analysis_bytes).unwrap();
             // todo(ludo): finer granularity
@@ -347,7 +328,7 @@ impl Actor for ContractProcessor {
                 }
 
                 {
-                    let db = self.db_readwrite();
+                    let db = contract_db(&self.storage_driver, &self.contract_id);
                     for change in changes.iter() {
                         match change {
                             Changes::UpdateDataVar(var, new_value, txid) => {

@@ -59,10 +59,9 @@ pub async fn do_run_supervisor(
 mod test {
 
     use std::time::SystemTime;
-    use clarinet_lib::types::events::StacksTransactionEvent;
     use opentelemetry::{KeyValue};
     use opentelemetry::trace::{StatusCode, Span, SpanContext};
-    use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksBlockData, StacksTransactionData, StacksTransactionKind, StacksTransactionExecutionCost, TransactionIdentifier, StacksTransactionMetadata, StacksTransactionReceipt, StacksContractDeploymentData};
+    use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksBlockData, StacksTransactionData, StacksTransactionKind, TransactionIdentifier, StacksTransactionMetadata, StacksTransactionReceipt, StacksContractDeploymentData};
     use std::collections::HashSet;
     use crate::datastore::StorageDriver;
     use crate::actors::{ClarionSupervisorMessage};
@@ -173,7 +172,6 @@ mod test {
 
     #[test]
     fn spawn_integrated_supervisor() {
-
         use crate::types::{ContractSettings, ContractsObserverConfig, ProjectMetadata, ContractsObserverId};
         use crate::actors::run_supervisor;
         use clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
@@ -196,11 +194,10 @@ mod test {
         contracts.insert(test_contract_id.clone(), test_contract_settings);
 
         let (tx, rx) = channel();
-        
+        let storage_driver = StorageDriver::tmpfs();
+        let storage_driver_moved = storage_driver.clone();
         let handle = std::thread::spawn(|| {
-            let mut working_dir = std::env::current_dir().unwrap();
-            working_dir.push("tests");
-            run_supervisor(StorageDriver::filesystem(working_dir), rx)
+            run_supervisor(storage_driver_moved, rx)
         });
 
         let clarion_manifest = ContractsObserverConfig {
@@ -229,13 +226,13 @@ mod test {
         let mut transaction = transaction_contract_call_impacting_contract_id(test_contract_id.to_string(), true);
         transaction.metadata.receipt.events.append(&mut vec![
             StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
-                var: "name".into(),
+                var: "my-var".into(),
                 new_value: "1".into(),
                 contract_identifier: test_contract_id.to_string()
             }),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
-                    map: "map-1".into(),
+                    map: "my-map".into(),
                     inserted_key: "k1".into(),
                     inserted_value: "v1".into(),
                     contract_identifier: test_contract_id.to_string()
@@ -243,7 +240,7 @@ mod test {
             ),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
-                    map: "map-1".into(),
+                    map: "my-map".into(),
                     inserted_key: "k2".into(),
                     inserted_value: "v2".into(),
                     contract_identifier: test_contract_id.to_string()
@@ -251,7 +248,7 @@ mod test {
             ),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
-                    map: "map-1".into(),
+                    map: "my-map".into(),
                     inserted_key: "k3".into(),
                     inserted_value: "v3".into(),
                     contract_identifier: test_contract_id.to_string()
@@ -259,7 +256,7 @@ mod test {
             ),
             StacksTransactionEvent::DataMapUpdateEvent(
                 DataMapUpdateEventData {
-                    map: "map-1".into(),
+                    map: "my-map".into(),
                     key: "k2".into(),
                     new_value: "v4".into(),
                     contract_identifier: test_contract_id.to_string()
@@ -267,42 +264,42 @@ mod test {
             ),
             StacksTransactionEvent::DataMapDeleteEvent(
                 DataMapDeleteEventData {
-                    map: "map-1".into(),
+                    map: "my-map".into(),
                     deleted_key: "k3".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
             StacksTransactionEvent::FTMintEvent(
                 FTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-ft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                     amount: "100".into(),
                 }
             ),
             StacksTransactionEvent::FTMintEvent(
                 FTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-ft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
                     amount: "1".into(),
                 }
             ),
             StacksTransactionEvent::FTMintEvent(
                 FTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-ft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
                     amount: "10000000".into(),
                 }
             ),
             StacksTransactionEvent::FTBurnEvent(
                 FTBurnEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-ft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
                     amount: "1".into(),
                 }
             ),
             StacksTransactionEvent::FTTransferEvent(
                 FTTransferEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-ft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
                     amount: "100".into(),
@@ -310,35 +307,35 @@ mod test {
             ),
             StacksTransactionEvent::NFTMintEvent(
                 NFTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                     asset_identifier: "A".into(),
                 }
             ),
             StacksTransactionEvent::NFTMintEvent(
                 NFTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
                     asset_identifier: "B".into(),
                 }
             ),
             StacksTransactionEvent::NFTMintEvent(
                 NFTMintEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
                     asset_identifier: "C".into(),
                 }
             ),
             StacksTransactionEvent::NFTBurnEvent(
                 NFTBurnEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
                     asset_identifier: "B".into(),
                 }
             ),
             StacksTransactionEvent::NFTTransferEvent(
                 NFTTransferEventData {
-                    asset_class_identifier: format!("{}::ft-token", test_contract_id),
+                    asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
                     asset_identifier: "A".into(),
@@ -360,5 +357,43 @@ mod test {
         tx.send(ClarionSupervisorMessage::Exit).unwrap();
 
         let _res = handle.join().unwrap();
+
+        {
+            use rocksdb::{IteratorMode, Direction};
+            use crate::datastore::contracts::{DBKey, db_key, contract_db};
+
+            let db = contract_db(&storage_driver, &test_contract_id.to_string());
+            
+            let res = db.get(&db_key(DBKey::Map("my-map", "k1"), &test_contract_id.to_string())).unwrap().unwrap();
+            assert_eq!(String::from_utf8(res).unwrap(), "v1".to_string());
+
+            let res = db.get(&db_key(DBKey::Map("my-map", "k2"), &test_contract_id.to_string())).unwrap().unwrap();
+            assert_eq!(String::from_utf8(res).unwrap(), "v4".to_string());
+            
+            let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
+            println!("1");
+            for (key, value) in iter {
+                println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
+            }
+            iter = db.iterator(IteratorMode::End);  // Always iterates backward
+            println!("2");
+            for (key, value) in iter {
+                println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
+            }
+            iter = db.iterator(IteratorMode::From(b"my-var", Direction::Forward)); // From a key in Direction::{forward,reverse}
+            println!("3");
+            for (key, value) in iter {
+                println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
+            }
+        
+            // You can seek with an existing Iterator instance, too
+            iter = db.iterator(IteratorMode::Start);
+            iter.set_mode(IteratorMode::From(b"S1G2081040G2081040G2081040G208105NK8PE5.test::var", Direction::Forward));
+            println!("4");
+            for (key, value) in iter {
+                println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
+            }
+        
+        }
     }
 }
