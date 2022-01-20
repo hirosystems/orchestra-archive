@@ -20,7 +20,7 @@ fn main() {
     orchestra::mock_backend(backend_cmd_tx, frontend_cmd_rx);
   });
 
-  let context = tauri::generate_context!();
+  let context = tauri::generate_context!("tauri.conf.json");
   let app = tauri::Builder::default().build(context).expect("Failed building");
   app.run(|handle, event| {});
 }

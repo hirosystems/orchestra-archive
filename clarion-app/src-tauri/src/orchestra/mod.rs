@@ -1,3 +1,4 @@
+use clarion_lib::clarinet_lib::clarity_repl::repl::Session;
 use clarion_lib::clarinet_lib::poke::load_session_settings;
 use clarion_lib::clarinet_lib::publish::Network;
 use serde::{self, Deserialize, Serialize};
@@ -7,11 +8,14 @@ use std::collections::BTreeMap;
 use std::net::TcpListener;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::path::PathBuf;
+use std::thread;
+use std::time;
 
 use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self};
 use clarion_lib::actors::{self};
-use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::ContractInterface;
+use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
 use clarion_lib::clarinet_lib::types::{BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata};
+use clarion_lib::types::{ContractsObserverConfig};
 
 use clarion_lib::datastore::StorageDriver;
 use tungstenite::{
@@ -21,41 +25,68 @@ use tungstenite::{
 };
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AppState {
-    current_block_identifier: BlockIdentifier,
+pub struct PollState {
     project_id: u64,
-    request: AppStateRequest,
+    request: PollStateRequest,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum AppStateRequest {
-    Initialization,
-    StateExplorer(StateExplorerState),
+pub enum PollStateRequest {
+    Initialization(PollStateInitialization),
+    Sync(PollStateSync),
+    Active(PollStateActive),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct StateExplorerState {
+pub struct PollStateInitialization {
+    manifest_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct PollStateSync {
+    stacks_block_identifier: Option<BlockIdentifier>,
+    bitcoin_block_identifier: Option<BlockIdentifier>,
+    expected_contracts_identifiers: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct PollStateActive {
+    stacks_block_identifier: BlockIdentifier,
+    bitcoin_block_identifier: BlockIdentifier,
     contract_identifier: String,
     field: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum AppStateUpdate {
-    Initialization(InitializationUpdate),
-    StateExplorer(StateExplorerUpdate),
+pub enum PollStateUpdate {
+    Initialization(PollStateInitializationUpdate),
+    Sync(PollStateSyncUpdate),
+    Active(PollStateActiveUpdate),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct InitializationUpdate {
+pub struct Contract {
+    contract_identifier: String,
+    interface: ContractInterface,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PollStateInitializationUpdate {
+    contracts: Vec<Contract>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PollStateSyncUpdate {
     stacks_chain_tip: Option<StacksBlockData>,
     bitcoin_chain_tip: Option<BitcoinBlockData>, 
-    contracts: Vec<ContractInterface>,
+    contracts: Vec<Contract>,
+    expected_contracts_identifiers: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct StateExplorerUpdate {
-    stacks_chain_events: Vec<StacksChainEvent>,
-    bitcoin_chain_events: Vec<BitcoinChainEvent>, 
+pub struct PollStateActiveUpdate {
+    stacks_chain_blocks: Vec<StacksChainEvent>,
+    bitcoin_chain_blocks: Vec<BitcoinChainEvent>, 
     field_values: FieldValues, 
 }
 
@@ -110,7 +141,7 @@ pub struct ContractState {
 pub enum BackendCommand {
     DevnetStopped,
     ChainEvent,
-    PollUpdate(AppStateUpdate),
+    PollState(PollStateUpdate),
     Ack(u64),
 }
 
@@ -118,7 +149,7 @@ pub enum FrontendCommand {
     StartDevnet,
     PauseDevnet,
     GetBlock,
-    PollState(AppState),
+    PollState(PollState),
 }
 
 pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
@@ -161,7 +192,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     let clarion_manifest = ContractsObserverConfig {
         identifier: ContractsObserverId(1),
         project: ProjectMetadata {
-            name: "test".into(),
+            name: "my-project".into(),
             authors: vec![],
             homepage: "".into(),
             license: "".into(),
@@ -180,17 +211,23 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
             match cmd {
                 FrontendCommand::PollState(state) => {
                     let update = match state.request {
-                        AppStateRequest::Initialization => {
-                            AppStateUpdate::Initialization(InitializationUpdate {
+                        PollStateRequest::Initialization(state) => {
+                            PollStateUpdate::Initialization(PollStateInitializationUpdate {
+                                contracts: vec![]
+                            })
+                        }
+                        PollStateRequest::Sync(state) => {
+                            PollStateUpdate::Sync(PollStateSyncUpdate {
                                 stacks_chain_tip: None,
                                 bitcoin_chain_tip: None,
                                 contracts: vec![],
+                                expected_contracts_identifiers: vec![]
                             })
                         }
-                        AppStateRequest::StateExplorer(state) => {
-                            AppStateUpdate::StateExplorer(StateExplorerUpdate {
-                                stacks_chain_events: vec![],
-                                bitcoin_chain_events: vec![],
+                        PollStateRequest::Active(state) => {
+                            PollStateUpdate::Active(PollStateActiveUpdate {
+                                stacks_chain_blocks: vec![],
+                                bitcoin_chain_blocks: vec![],
                                 field_values: FieldValues::Var(VarValues {
                                     value: "101".to_string(),
                                     page_size: 0,
@@ -200,7 +237,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                             })
                         }
                     };
-                    backend_cmd_tx.send(BackendCommand::PollUpdate(update)).unwrap();
+                    backend_cmd_tx.send(BackendCommand::PollState(update)).unwrap();
 
                 }
                 FrontendCommand::GetBlock => {
@@ -224,27 +261,28 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     }
 }
 
-
-pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
-    use clarion_lib::actors::{ClarionSupervisorMessage};
-    use clarion_lib::types::{ContractsObserverConfig, ProjectMetadata, ContractSettings, ContractsObserverId};
+pub fn config_from_clarinet_manifest_path(manifest_path: &str) -> (ContractsObserverConfig, Vec<Contract>) {
+    use clarion_lib::types::{ProjectMetadata, ContractSettings, ContractsObserverId};
     use clarion_lib::clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
-    use clarion_lib::clarinet_lib::types::StacksBlockMetadata;
     use std::convert::TryInto;
 
-    let manifest_path = PathBuf::from("/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml");
+    let manifest_path = PathBuf::from(manifest_path);
 
     let (session_settings, _) = load_session_settings(manifest_path, &Network::Devnet).unwrap();
-
-    let (devnet_events_tx, devnet_events_rx) = channel::<DevnetEvent>();
     
-    let (supervisor_tx, supervisor_rx) = channel();
+    let mut session = Session::new(session_settings.clone());
+    let analysis = match session.start() {
+        Ok((res, analysis)) => analysis,
+        Err(e) => panic!(),
+    };
 
-    let handle = std::thread::spawn(|| {
-        let storage_driver = StorageDriver::tmpfs();
-        println!("Working dir: {:?}", storage_driver);
-        actors::run_supervisor(storage_driver, supervisor_rx)
-    });
+    let interfaces = analysis.iter().map(|(a, id, _)| 
+        Contract { 
+            contract_identifier: a.contract_identifier.to_string(), 
+            interface: build_contract_interface(a)
+        }).collect::<_>();
+
+    println!("{:?}", interfaces);
 
     let mut observed_contracts = BTreeMap::new();
     for contract in session_settings.initial_contracts.iter() {
@@ -258,15 +296,6 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         });
     }
 
-    let test_contract_id = QualifiedContractIdentifier::new(
-        StandardPrincipalData::transient(),
-        "counter".try_into().unwrap(),
-    );
-    let test_contract_settings = ContractSettings {
-        state_explorer_enabled: true,
-        api_generator_enabled: vec![],
-    };
-
     let clarion_manifest = ContractsObserverConfig {
         identifier: ContractsObserverId(1),
         project: ProjectMetadata {
@@ -279,6 +308,20 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         lambdas: vec![],
         contracts: observed_contracts,
     };
+    (clarion_manifest, interfaces)
+}
+
+pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
+    use clarion_lib::actors::{ClarionSupervisorMessage};
+    use clarion_lib::clarinet_lib::types::StacksBlockMetadata;
+
+    let (supervisor_tx, supervisor_rx) = channel();
+
+    let handle = std::thread::spawn(|| {
+        let storage_driver = StorageDriver::tmpfs();
+        println!("Working dir: {:?}", storage_driver);
+        actors::run_supervisor(storage_driver, supervisor_rx)
+    });
 
     let frontend_commands_supervisor_tx = supervisor_tx.clone();
     std::thread::spawn(move || {
@@ -288,17 +331,34 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
             match cmd {
                 FrontendCommand::PollState(state) => {
                     let update = match state.request {
-                        AppStateRequest::Initialization => {
-                            AppStateUpdate::Initialization(InitializationUpdate {
+                        PollStateRequest::Initialization(state) => {
+
+                            let (config, contracts) = config_from_clarinet_manifest_path(&state.manifest_path);
+                            frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::RegisterContractsObserver(config)).unwrap();
+
+                            PollStateUpdate::Initialization(PollStateInitializationUpdate {
+                                contracts
+                            })
+                        }
+                        PollStateRequest::Sync(state) => {
+                            let bitcoin_chain_tip = get_bitcoin_chain_tip(state.bitcoin_block_identifier.as_ref());
+                            let stacks_chain_tip = get_stacks_chain_tip(state.bitcoin_block_identifier.as_ref());
+        
+                            PollStateUpdate::Sync(PollStateSyncUpdate {
                                 stacks_chain_tip: None,
                                 bitcoin_chain_tip: None,
                                 contracts: vec![],
+                                expected_contracts_identifiers: vec![]
                             })
                         }
-                        AppStateRequest::StateExplorer(state) => {
-                            AppStateUpdate::StateExplorer(StateExplorerUpdate {
-                                stacks_chain_events: vec![],
-                                bitcoin_chain_events: vec![],
+                        PollStateRequest::Active(state) => {
+
+                            let bitcoin_chain_tip = get_bitcoin_chain_tip(Some(&state.bitcoin_block_identifier));
+                            let stacks_chain_tip = get_stacks_chain_tip(Some(&state.bitcoin_block_identifier));
+
+                            PollStateUpdate::Active(PollStateActiveUpdate {
+                                stacks_chain_blocks: vec![],
+                                bitcoin_chain_blocks: vec![],
                                 field_values: FieldValues::Var(VarValues {
                                     value: "101".to_string(),
                                     page_size: 0,
@@ -308,7 +368,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                             })
                         }
                     };
-                    backend_cmd_tx.send(BackendCommand::PollUpdate(update)).unwrap();
+                    backend_cmd_tx.send(BackendCommand::PollState(update)).unwrap();
 
                 }
                 FrontendCommand::GetBlock => {
@@ -330,6 +390,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
 
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
+
     supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(2),
         parent_block_identifier: block_identifier(1),
@@ -337,6 +400,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         transactions: vec![],
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
+
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
 
     supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(3),
@@ -346,6 +412,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
 
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
+
     supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(4),
         parent_block_identifier: block_identifier(3),
@@ -353,6 +422,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         transactions: vec![],
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
+
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
 
     supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(5),
@@ -362,6 +434,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
 
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
+
     supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(6),
         parent_block_identifier: block_identifier(5),
@@ -369,6 +444,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         transactions: vec![],
         metadata: BitcoinBlockMetadata {}
     }))).unwrap();
+
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
 
     supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
         block_identifier: block_identifier(1),
@@ -383,6 +461,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         }
     }))).unwrap();
 
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
+
     supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
         block_identifier: block_identifier(2),
         parent_block_identifier: block_identifier(1),
@@ -396,6 +477,9 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         }
     }))).unwrap();
 
+    let delay = time::Duration::from_millis(10000);
+    thread::sleep(delay);
+
     supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
         block_identifier: block_identifier(3),
         parent_block_identifier: block_identifier(2),
@@ -408,13 +492,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
             pox_cycle_length: 0 
         }
     }))).unwrap();
-
-    supervisor_tx.send(ClarionSupervisorMessage::RegisterContractsObserver(clarion_manifest)).unwrap();
-
-
-
-}  
-
+}
 
 pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Receiver<BackendCommand>) {
 
@@ -441,14 +519,22 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
             let msg = websocket.read_message().unwrap();
             let response_expected = match msg {
                 Message::Text(msg) => {
-                    println!("WS: command received");
-                    if let Ok(app_state) = serde_json::from_str::<AppState>(&msg) {
+                    // let poll_state = PollState {
+                    //     project_id: 0,
+                    //     request: PollStateRequest::Initialization(PollStateInitialization {
+                    //         manifest_path: "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml".into()
+                    //     })
+                    // };
+                    println!("WS: command received: {}", msg);
+
+                    let response_expected = if let Ok(app_state) = serde_json::from_str::<PollState>(&msg) {
                         println!("WS: Poll state command received");
                         frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
+                        true
                     } else {
-                        frontend_cmd_tx.send(FrontendCommand::StartDevnet).expect("Link broken");
-                    }
-                    true
+                        false
+                    };
+                    response_expected
                 },
                 Message::Binary(bytes) => {
                     true
@@ -474,9 +560,11 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                                 "msg": format!("Ack {}", ack)
                             }).to_string())).expect("Link broken");
                         },
-                        BackendCommand::PollUpdate(update) => {
+                        BackendCommand::PollState(update) => {
                             println!("Update {:?} received!", update);
-                            websocket.write_message(Message::Text(json!(update).to_string()))
+                            websocket.write_message(Message::Text(json!({
+                                "update": update
+                            }).to_string()))
                                 .expect("Link broken");
                         },
 
@@ -491,10 +579,17 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
     }
 }
 
-
 fn block_identifier(i: u64) -> BlockIdentifier {
     BlockIdentifier {
         index: i,
         hash: format!("{}", i),
     }
+}
+
+fn get_bitcoin_chain_tip(known_tip: Option<&BlockIdentifier>) -> Option<BitcoinBlockData> {
+    None
+}
+
+fn get_stacks_chain_tip(known_tip: Option<&BlockIdentifier>) -> Option<StacksBlockData> {
+    None
 }
