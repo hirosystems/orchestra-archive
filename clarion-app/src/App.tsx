@@ -1,14 +1,16 @@
 import React from 'react'
-import './App.css'
+import './App.css';
 import HiroIcon from './hiro.svg'
-import State from './State'
-import {ThemeProvider, BaseStyles, Box, Text} from '@primer/react'
-import {Heading, UnderlineNav, StyledOcticon} from '@primer/react'
+import StateExplorer from './pages/StateExplorer'
+import {ThemeProvider, BaseStyles, Box, Text, UnderlineNav, StyledOcticon} from '@primer/react'
 import {VersionsIcon, DatabaseIcon, GearIcon, BroadcastIcon } from '@primer/octicons-react'
 import {SocketProvider} from './components/SocketProvider';
+import { Provider } from 'react-redux'
+import { rootStore } from './stores/root'
 
 function App() {
   return (
+    <Provider store={rootStore}>
     <SocketProvider>
       <ThemeProvider>
         <BaseStyles>
@@ -35,10 +37,11 @@ function App() {
               </UnderlineNav.Link>
             </UnderlineNav>
           </Box>
-          <State></State>
+          <StateExplorer></StateExplorer>
         </BaseStyles>
       </ThemeProvider>
     </SocketProvider>
+    </Provider>
   );
 }
 

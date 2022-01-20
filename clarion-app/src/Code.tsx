@@ -1,6 +1,6 @@
 import React from 'react';
 import logo from './logo.svg';
-import './App.css';
+import './App.scss';
 import {ThemeProvider, BaseStyles, Box} from '@primer/react'
 import {BranchName, Header, Avatar, StyledOcticon, UnderlineNav, SideNav, Text, FilteredSearch, ButtonGroup, Button, ButtonPrimary, CounterLabel, Dropdown, TextInput} from '@primer/react'
 import {MarkGithubIcon, PersonIcon, MailIcon, OctofaceIcon, CodeIcon, DatabaseIcon, FileDirectoryIcon, SearchIcon} from '@primer/octicons-react'
