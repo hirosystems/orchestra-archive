@@ -4,14 +4,15 @@ import HiroIcon from './hiro.svg'
 import StateExplorer from './pages/StateExplorer'
 import {ThemeProvider, BaseStyles, Box, Text, UnderlineNav, StyledOcticon} from '@primer/react'
 import {VersionsIcon, DatabaseIcon, GearIcon, BroadcastIcon } from '@primer/octicons-react'
-import {SocketProvider} from './components/SocketProvider';
+import {NetworkingProvider} from './components/NetworkingProvider';
 import { Provider } from 'react-redux'
 import { rootStore } from './stores/root'
 
 function App() {
+
   return (
     <Provider store={rootStore}>
-    <SocketProvider>
+    <NetworkingProvider>
       <ThemeProvider>
         <BaseStyles>
           <Box data-tauri-drag-region style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48 }}>
@@ -40,7 +41,7 @@ function App() {
           <StateExplorer></StateExplorer>
         </BaseStyles>
       </ThemeProvider>
-    </SocketProvider>
+    </NetworkingProvider>
     </Provider>
   );
 }

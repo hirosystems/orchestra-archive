@@ -2,73 +2,14 @@ import '../App.css';
 import { ContractFieldLink } from '../components/ContractFieldLink';
 import { Box } from '@primer/react'
 import { SideNav, Text } from '@primer/react'
-import { useCallback, useEffect, useState } from "react";
-import { useSocket } from "../hooks/useSocket";
-import { useInterval } from "../hooks/useInterval";
-import { useMap } from "../hooks/useMap";
 import { BlockHeader } from '../components/BlockHeader';
-import { PollState, ContractStateReady, PollStateUpdate, PollStateInitialization } from '../types';
-import { StacksContractInterface } from "../types";
+import { useRootSelector } from "../hooks/useRootSelector";
+import { selectContracts, selectContractsIdentifiers } from "../states/StateExplorerState";
 
 function StateExplorer() {
-  const [localState, setLocalState] = useState({
-    key: PollState.None,
-    value: {}
-  });
-  const [isPolling, setPolling] = useState<boolean>(false)
-  const [expectedContracts, setExpectedContracts] = useState<string[]>([])
 
-  const socket = useSocket();
-  const [block, setBlock] = useState("-");
-  const [contractStore, contractStoreActions] = useMap<string, StacksContractInterface>();
-
-  useInterval(
-    () => {
-      let request = Object.fromEntries([localState].map(e => [e.key, e.value]))
-      let payload = {
-        project_id: 0,
-        request: request,
-      };
-      socket.send(JSON.stringify(payload));
-  }, isPolling ? 5000 : null);
-
-  const onMessage = useCallback((message) => {
-    const data: PollStateUpdate = JSON.parse(message?.data);
-    if (data.update.Initialization) {
-      let value: any = {...data.update.Initialization};
-      let contracts: Array<ContractStateReady> = value.contracts;
-      let contractsIds = [];
-      for (const contract of contracts) {
-        contractStoreActions.set(contract.contract_identifier, contract.interface);
-        contractsIds.push(contract.contract_identifier);
-      }
-      setExpectedContracts([...contractsIds]);
-    }
-
-  }, []);
-
-  // const onLocalStateUpdate = useCallback((state: PollStateData) => {
-  //   console.log(state);
-  // }, [setLocalState]);
-
-  useEffect(() => {
-    socket.addEventListener("message", onMessage);
-    let manifestPath = "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml";
-    let payload: PollStateInitialization = {
-      manifest_path: manifestPath,
-    }
-
-    setLocalState({
-      key: PollState.Initialization,
-      value: payload
-    });
-
-    setPolling(true);
-
-    return () => {
-      socket.removeEventListener("message", onMessage);
-    };
-  }, [socket, onMessage]);
+  const contracts = useRootSelector(selectContracts);
+  const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
 
   return (
     <div>
@@ -78,7 +19,6 @@ function StateExplorer() {
           <SideNav bordered sx={{ width: 280 }}>
             <SideNav.Link href="#url">
               <Text>Contracts</Text>
-
               {/* <FilteredSearch>
                 <Dropdown>
                 <Dropdown.Button>Field Type</Dropdown.Button>
@@ -92,33 +32,37 @@ function StateExplorer() {
                 <TextInput sx={{ pl: 1 }} icon={SearchIcon} />
               </FilteredSearch> */}
             </SideNav.Link>
-            {expectedContracts.map((contract, i) => {
-
+            {contractsIdentifiers.map((contractIdentifier, i) => {
               let fields = [];
               fields.push(
                 <SideNav.Link href="#url">
-                  <Text>{contract.split('.')[1]}</Text>
+                  <Text>{contractIdentifier.split('.')[1]}</Text>
                 </SideNav.Link>
               )
-              for (const v of contractStore.get(contract)!.variables) {
+              let index = 0;
+              for (const v of contracts.get(contractIdentifier)!.variables) {
                 fields.push(
-                  <ContractFieldLink fieldName={v.name} fieldType="var" contractIdentifier={contract} />
+                  <ContractFieldLink key={index} fieldName={v.name} fieldType="var" contractIdentifier={contractIdentifier} />
                 )
+                index += 1;
               }
-              for (const v of contractStore.get(contract)!.maps) {
+              for (const v of contracts.get(contractIdentifier)!.maps) {
                 fields.push(
-                  <ContractFieldLink fieldName={v.name} fieldType="map" contractIdentifier={contract} />
+                  <ContractFieldLink key={index} fieldName={v.name} fieldType="map" contractIdentifier={contractIdentifier} />
                 )
+                index += 1;
               }
-              for (const v of contractStore.get(contract)!.fungible_tokens) {
+              for (const v of contracts.get(contractIdentifier)!.fungible_tokens) {
                 fields.push(
-                  <ContractFieldLink fieldName={v.name} fieldType="ft" contractIdentifier={contract} />
+                  <ContractFieldLink key={index} fieldName={v.name} fieldType="ft" contractIdentifier={contractIdentifier} />
                 )
+                index += 1;
               }
-              for (const v of contractStore.get(contract)!.non_fungible_tokens) {
+              for (const v of contracts.get(contractIdentifier)!.non_fungible_tokens) {
                 fields.push(
-                  <ContractFieldLink fieldName={v.name} fieldType="nft" contractIdentifier={contract} />
+                  <ContractFieldLink key={index} fieldName={v.name} fieldType="nft" contractIdentifier={contractIdentifier} />
                 )
+                index += 1;
               }
               return fields
             }

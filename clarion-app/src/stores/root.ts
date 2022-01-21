@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import stateExplorerReducer from '../states/StateExplorerState';
+import networkingReducer from '../states/NetworkingState';
 
 export const rootStore = configureStore({
   reducer: {
     stateExplorer: stateExplorerReducer,
+    networking: networkingReducer,
   },
 });
 
