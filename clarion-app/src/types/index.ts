@@ -9,9 +9,9 @@ import {
 
 export enum PollState {
   None = "None",
-  Initialization = "Initialization",
-  Sync = "Sync",
-  Active = "Active",
+  Initialization = "StateExplorerInitialization",
+  Sync = "StateExplorerSync",
+  Active = "StateExplorerActive",
 }
 
 export type PollStateData = Record<

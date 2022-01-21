@@ -27,30 +27,30 @@ use tungstenite::{
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PollState {
     project_id: u64,
-    request: PollStateRequest,
+    request: NetworkRequest,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum PollStateRequest {
-    Initialization(PollStateInitialization),
-    Sync(PollStateSync),
-    Active(PollStateActive),
+pub enum NetworkRequest {
+    StateExplorerInitialization(StateExplorerInitialization),
+    StateExplorerSync(StateExplorerSync),
+    StateExplorerActive(StateExplorerActive),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct PollStateInitialization {
+pub struct StateExplorerInitialization {
     manifest_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct PollStateSync {
+pub struct StateExplorerSync {
     stacks_block_identifier: Option<BlockIdentifier>,
     bitcoin_block_identifier: Option<BlockIdentifier>,
     expected_contracts_identifiers: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct PollStateActive {
+pub struct StateExplorerActive {
     stacks_block_identifier: BlockIdentifier,
     bitcoin_block_identifier: BlockIdentifier,
     contract_identifier: String,
@@ -58,10 +58,10 @@ pub struct PollStateActive {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum PollStateUpdate {
-    Initialization(PollStateInitializationUpdate),
-    Sync(PollStateSyncUpdate),
-    Active(PollStateActiveUpdate),
+pub enum NetworkResponse {
+    StateExplorerInitialization(StateExplorerInitializationUpdate),
+    StateExplorerSync(StateExplorerSyncUpdate),
+    StateExplorerActive(StateExplorerActiveUpdate),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -71,12 +71,12 @@ pub struct Contract {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct PollStateInitializationUpdate {
+pub struct StateExplorerInitializationUpdate {
     contracts: Vec<Contract>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct PollStateSyncUpdate {
+pub struct StateExplorerSyncUpdate {
     stacks_chain_tip: Option<StacksBlockData>,
     bitcoin_chain_tip: Option<BitcoinBlockData>, 
     contracts: Vec<Contract>,
@@ -84,7 +84,7 @@ pub struct PollStateSyncUpdate {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct PollStateActiveUpdate {
+pub struct StateExplorerActiveUpdate {
     stacks_chain_blocks: Vec<StacksChainEvent>,
     bitcoin_chain_blocks: Vec<BitcoinChainEvent>, 
     field_values: FieldValues, 
@@ -141,7 +141,7 @@ pub struct ContractState {
 pub enum BackendCommand {
     DevnetStopped,
     ChainEvent,
-    PollState(PollStateUpdate),
+    Poll(NetworkResponse),
     Ack(u64),
 }
 
@@ -211,21 +211,21 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
             match cmd {
                 FrontendCommand::PollState(state) => {
                     let update = match state.request {
-                        PollStateRequest::Initialization(state) => {
-                            PollStateUpdate::Initialization(PollStateInitializationUpdate {
+                        NetworkRequest::StateExplorerInitialization(state) => {
+                            NetworkResponse::StateExplorerInitialization(StateExplorerInitializationUpdate {
                                 contracts: vec![]
                             })
                         }
-                        PollStateRequest::Sync(state) => {
-                            PollStateUpdate::Sync(PollStateSyncUpdate {
+                        NetworkRequest::StateExplorerSync(state) => {
+                            NetworkResponse::StateExplorerSync(StateExplorerSyncUpdate {
                                 stacks_chain_tip: None,
                                 bitcoin_chain_tip: None,
                                 contracts: vec![],
                                 expected_contracts_identifiers: vec![]
                             })
                         }
-                        PollStateRequest::Active(state) => {
-                            PollStateUpdate::Active(PollStateActiveUpdate {
+                        NetworkRequest::StateExplorerActive(state) => {
+                            NetworkResponse::StateExplorerActive(StateExplorerActiveUpdate {
                                 stacks_chain_blocks: vec![],
                                 bitcoin_chain_blocks: vec![],
                                 field_values: FieldValues::Var(VarValues {
@@ -237,7 +237,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                             })
                         }
                     };
-                    backend_cmd_tx.send(BackendCommand::PollState(update)).unwrap();
+                    backend_cmd_tx.send(BackendCommand::Poll(update)).unwrap();
 
                 }
                 FrontendCommand::GetBlock => {
@@ -263,8 +263,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
 
 pub fn config_from_clarinet_manifest_path(manifest_path: &str) -> (ContractsObserverConfig, Vec<Contract>) {
     use clarion_lib::types::{ProjectMetadata, ContractSettings, ContractsObserverId};
-    use clarion_lib::clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
-    use std::convert::TryInto;
+    use clarion_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 
     let manifest_path = PathBuf::from(manifest_path);
 
@@ -331,32 +330,32 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
             match cmd {
                 FrontendCommand::PollState(state) => {
                     let update = match state.request {
-                        PollStateRequest::Initialization(state) => {
+                        NetworkRequest::StateExplorerInitialization(state) => {
 
                             let (config, contracts) = config_from_clarinet_manifest_path(&state.manifest_path);
                             frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::RegisterContractsObserver(config)).unwrap();
 
-                            PollStateUpdate::Initialization(PollStateInitializationUpdate {
+                            NetworkResponse::StateExplorerInitialization(StateExplorerInitializationUpdate {
                                 contracts
                             })
                         }
-                        PollStateRequest::Sync(state) => {
+                        NetworkRequest::StateExplorerSync(state) => {
                             let bitcoin_chain_tip = get_bitcoin_chain_tip(state.bitcoin_block_identifier.as_ref());
                             let stacks_chain_tip = get_stacks_chain_tip(state.bitcoin_block_identifier.as_ref());
         
-                            PollStateUpdate::Sync(PollStateSyncUpdate {
+                            NetworkResponse::StateExplorerSync(StateExplorerSyncUpdate {
                                 stacks_chain_tip: None,
                                 bitcoin_chain_tip: None,
                                 contracts: vec![],
                                 expected_contracts_identifiers: vec![]
                             })
                         }
-                        PollStateRequest::Active(state) => {
+                        NetworkRequest::StateExplorerActive(state) => {
 
                             let bitcoin_chain_tip = get_bitcoin_chain_tip(Some(&state.bitcoin_block_identifier));
                             let stacks_chain_tip = get_stacks_chain_tip(Some(&state.bitcoin_block_identifier));
 
-                            PollStateUpdate::Active(PollStateActiveUpdate {
+                            NetworkResponse::StateExplorerActive(StateExplorerActiveUpdate {
                                 stacks_chain_blocks: vec![],
                                 bitcoin_chain_blocks: vec![],
                                 field_values: FieldValues::Var(VarValues {
@@ -368,7 +367,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                             })
                         }
                     };
-                    backend_cmd_tx.send(BackendCommand::PollState(update)).unwrap();
+                    backend_cmd_tx.send(BackendCommand::Poll(update)).unwrap();
 
                 }
                 FrontendCommand::GetBlock => {
@@ -521,14 +520,13 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                 Message::Text(msg) => {
                     // let poll_state = PollState {
                     //     project_id: 0,
-                    //     request: PollStateRequest::Initialization(PollStateInitialization {
+                    //     request: NetworkRequest::StateExplorerInitialization(StateExplorerInitialization {
                     //         manifest_path: "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml".into()
                     //     })
                     // };
-                    println!("WS: command received: {}", msg);
-
+                    // println!("WS: command received: \n{}\n{}", msg, json!(poll_state).to_string());
                     let response_expected = if let Ok(app_state) = serde_json::from_str::<PollState>(&msg) {
-                        println!("WS: Poll state command received");
+                        println!("WS: NetworkCommand received");
                         frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
                         true
                     } else {
@@ -560,7 +558,7 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                                 "msg": format!("Ack {}", ack)
                             }).to_string())).expect("Link broken");
                         },
-                        BackendCommand::PollState(update) => {
+                        BackendCommand::Poll(update) => {
                             println!("Update {:?} received!", update);
                             websocket.write_message(Message::Text(json!({
                                 "update": update

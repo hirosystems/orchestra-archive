@@ -2,57 +2,59 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../stores/root";
 import { BlockIdentifier } from "../types/clarinet";
 
-
 export enum ActiveFeature {
-    StateExplorer,
-  }
-  
-export enum FunctionalState {
+  StateExplorer,
+}
+
+export enum StateExplorerState {
   None = "None",
-  Initialization = "Initialization",
-  Sync = "Sync",
-  Active = "Active",
+  Initialization = "StateExplorerInitialization",
+  Sync = "StateExplorerSync",
+  Active = "StateExplorerActive",
 }
 
 export interface Request {
-    project_id: string,
-    request: any,
+  project_id: number;
+  request: any;
 }
 
 export interface StateExplorerInitializationState {
-    manifest_path: string;
+  manifest_path: string;
 }
 
 export interface StateExplorerSyncState {
-    stacks_chain_tip?: BlockIdentifier;
-    bitcoin_chain_tip?: BlockIdentifier;
-    expected_contracts_identifiers: string[];
+  stacks_chain_tip?: BlockIdentifier;
+  bitcoin_chain_tip?: BlockIdentifier;
+  expected_contracts_identifiers: string[];
 }
 
 export interface StateExplorerActiveState {
-    stacks_chain_tip: BlockIdentifier;
-    bitcoin_chain_tip: BlockIdentifier;
-    contract_identifier: string;
-    field: string;
+  stacks_chain_tip: BlockIdentifier;
+  bitcoin_chain_tip: BlockIdentifier;
+  contract_identifier: string;
+  field: string;
 }
 
 export interface StateExplorerNetworkingState {
   active: boolean;
-  state: FunctionalState;
+  state: StateExplorerState;
   manifestPath?: string;
-  broadcastableState?: StateExplorerInitializationState | StateExplorerSyncState | StateExplorerActiveState;
+  broadcastableState?:
+    | StateExplorerInitializationState
+    | StateExplorerSyncState
+    | StateExplorerActiveState;
 }
 
 export interface NetworkingState {
-    activeFeature?: ActiveFeature,
-    request?: Request;
-    stateExplorer: StateExplorerNetworkingState;
+  activeFeature?: ActiveFeature;
+  request?: Request;
+  stateExplorer: StateExplorerNetworkingState;
 }
 
 const initialState: NetworkingState = {
   stateExplorer: {
     active: false,
-    state: FunctionalState.None,
+    state: StateExplorerState.None,
   },
 };
 
@@ -64,34 +66,42 @@ export const networkingSlice = createSlice({
       state: NetworkingState,
       action: PayloadAction<string>
     ) => {
+      // Guard duplicate messages
+      if (state.stateExplorer.active) {
+        return;
+      }
+
       state.stateExplorer.active = true;
       if (
-        state.stateExplorer.state === FunctionalState.None ||
+        state.stateExplorer.state === StateExplorerState.None ||
         action.payload !== state.stateExplorer.manifestPath
       ) {
-        state.stateExplorer.state = FunctionalState.Initialization;
+        state.stateExplorer.state = StateExplorerState.Initialization;
         state.stateExplorer.manifestPath = action.payload;
       }
       state.stateExplorer.broadcastableState = {
-        manifest_path: action.payload,        
+        manifest_path: action.payload,
       };
 
-      let request = Object.fromEntries([[FunctionalState.None, state.stateExplorer.broadcastableState]]);
+      let request = Object.fromEntries([
+        [
+            StateExplorerState.Initialization,
+          state.stateExplorer.broadcastableState,
+        ],
+      ]);
       let payload = {
-        project_id: "0",
+        project_id: 0,
         request: request,
       };
 
       state.request = payload;
     },
     syncStateExplorer: (
-        state: NetworkingState,
-        action: PayloadAction<Array<string>>
-      ) => {
-        state.stateExplorer.active = true;
-
+      state: NetworkingState,
+      action: PayloadAction<Array<string>>
+    ) => {
+      state.stateExplorer.active = true;
     },
-  
   },
 });
 
@@ -106,8 +116,7 @@ export const selectStateExplorerNetworkingState = (state: RootState) =>
 export const selectStateExplorerBroadcastableState = (state: RootState) =>
   state.networking.stateExplorer.broadcastableState;
 
-export const selectRequest = (state: RootState) =>
-  state.networking.request;
+export const selectRequest = (state: RootState) => state.networking.request;
 
 export const selectShouldPoll = (state: RootState) =>
   state.networking.stateExplorer.active;

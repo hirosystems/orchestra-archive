@@ -3,14 +3,19 @@ import { ContractFieldLink } from '../components/ContractFieldLink';
 import { Box } from '@primer/react'
 import { SideNav, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
-import { useRootSelector } from "../hooks/useRootSelector";
+import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { selectContracts, selectContractsIdentifiers } from "../states/StateExplorerState";
+import { initializeStateExplorer } from '../states/NetworkingState';
 
 function StateExplorer() {
 
+  let dispatch = useRootDispatch();
+  let hardcodedProjectPath = "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml";
+  dispatch(initializeStateExplorer(hardcodedProjectPath));
+
   const contracts = useRootSelector(selectContracts);
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
-
+  
   return (
     <div>
       {/* <BlockHeader block={block} /> */}
@@ -70,13 +75,6 @@ function StateExplorer() {
           </SideNav>
         </Box>
         <Box flexGrow={1} p={3}>
-        <div className="blankslate blankslate-large">
-  <img src="https://ghicons.github.com/assets/images/blue/png/Pull%20request.png" alt="" className="mb-3" />
-  <h3 className="mb-1">You don’t seem to have any pull requests.</h3>
-  <p>Pull requests help you discuss potential changes before they are merged into the base branch.</p>
-  <button className="btn btn-primary my-3" type="button">New pull request</button>
-  <p><button className="btn-link" type="button">Learn more</button></p>
-</div>
         </Box>
       </Box>
     </div>
