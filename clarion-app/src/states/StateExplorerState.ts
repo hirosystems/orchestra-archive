@@ -9,6 +9,11 @@ export interface StateExplorerState {
   activeField?: string;
 }
 
+export interface ActivateFieldPayload {
+    contractIdentifier: string,
+    fieldName: string,
+}
+
 const initialState: StateExplorerState = {
   contractsIdentifiers: [],
   contracts: new Map(),
@@ -22,9 +27,10 @@ export const stateExplorerSlice = createSlice({
   reducers: {
     activateField: (
       state: StateExplorerState,
-      action: PayloadAction<string>
+      action: PayloadAction<ActivateFieldPayload>
     ) => {
-      state.activeField = action.payload;
+      state.activeField = action.payload.fieldName;
+      state.activeContractIdentifier = action.payload.contractIdentifier;
     },
     updateContracts: (
       state: StateExplorerState,
@@ -47,5 +53,11 @@ export const selectContracts = (state: RootState) =>
 
 export const selectContractsIdentifiers = (state: RootState) =>
   state.stateExplorer.contractsIdentifiers;
+
+export const selectActiveContractIdentifier = (state: RootState) =>
+  state.stateExplorer.activeContractIdentifier;
+
+export const selectActiveField = (state: RootState) =>
+  state.stateExplorer.activeField;
 
 export default stateExplorerSlice.reducer;

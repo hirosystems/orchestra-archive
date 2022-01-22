@@ -1,10 +1,10 @@
 import '../App.css';
-import { ContractFieldLink } from '../components/ContractFieldLink';
+import { ContractField, Contract, Section, Title } from '../components/Sidebar';
 import { Box } from '@primer/react'
-import { SideNav, Text } from '@primer/react'
+import { Heading, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { selectContracts, selectContractsIdentifiers } from "../states/StateExplorerState";
+import { selectContracts, selectContractsIdentifiers, selectActiveContractIdentifier } from "../states/StateExplorerState";
 import { initializeStateExplorer } from '../states/NetworkingState';
 
 function StateExplorer() {
@@ -15,15 +15,14 @@ function StateExplorer() {
 
   const contracts = useRootSelector(selectContracts);
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
-  
+
   return (
     <div>
+      {/* <Text content="State Explorer" size="large" weight="bold" /> */}
       {/* <BlockHeader block={block} /> */}
       <Box display="flex">
         <Box p={3}>
-          <SideNav bordered sx={{ width: 280 }}>
-            <SideNav.Link href="#url">
-              <Text>Contracts</Text>
+              <Section name="Contracts"/>
               {/* <FilteredSearch>
                 <Dropdown>
                 <Dropdown.Button>Field Type</Dropdown.Button>
@@ -36,45 +35,44 @@ function StateExplorer() {
               </Dropdown>
                 <TextInput sx={{ pl: 1 }} icon={SearchIcon} />
               </FilteredSearch> */}
-            </SideNav.Link>
             {contractsIdentifiers.map((contractIdentifier, i) => {
               let fields = [];
+
               fields.push(
-                <SideNav.Link href="#url">
-                  <Text>{contractIdentifier.split('.')[1]}</Text>
-                </SideNav.Link>
+                <Contract contractIdentifier={contractIdentifier}/>
               )
               let index = 0;
               for (const v of contracts.get(contractIdentifier)!.variables) {
                 fields.push(
-                  <ContractFieldLink key={index} fieldName={v.name} fieldType="var" contractIdentifier={contractIdentifier} />
+                  <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={contractIdentifier} />
                 )
                 index += 1;
               }
               for (const v of contracts.get(contractIdentifier)!.maps) {
                 fields.push(
-                  <ContractFieldLink key={index} fieldName={v.name} fieldType="map" contractIdentifier={contractIdentifier} />
+                  <ContractField key={index} fieldName={v.name} fieldType="map" contractIdentifier={contractIdentifier} />
                 )
                 index += 1;
               }
               for (const v of contracts.get(contractIdentifier)!.fungible_tokens) {
                 fields.push(
-                  <ContractFieldLink key={index} fieldName={v.name} fieldType="ft" contractIdentifier={contractIdentifier} />
+                  <ContractField key={index} fieldName={v.name} fieldType="ft" contractIdentifier={contractIdentifier} />
                 )
                 index += 1;
               }
               for (const v of contracts.get(contractIdentifier)!.non_fungible_tokens) {
                 fields.push(
-                  <ContractFieldLink key={index} fieldName={v.name} fieldType="nft" contractIdentifier={contractIdentifier} />
+                  <ContractField key={index} fieldName={v.name} fieldType="nft" contractIdentifier={contractIdentifier} />
                 )
                 index += 1;
               }
               return fields
             }
-            )}          
-          </SideNav>
+            )}    
+            <Section name="Wallets"/>
         </Box>
         <Box flexGrow={1} p={3}>
+
         </Box>
       </Box>
     </div>

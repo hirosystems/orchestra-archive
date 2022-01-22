@@ -85,7 +85,7 @@ export const networkingSlice = createSlice({
 
       let request = Object.fromEntries([
         [
-            StateExplorerState.Initialization,
+          StateExplorerState.Initialization,
           state.stateExplorer.broadcastableState,
         ],
       ]);
