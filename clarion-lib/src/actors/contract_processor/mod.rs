@@ -1,5 +1,6 @@
-use crate::types::ContractsObserverConfig;
+use crate::types::ProtocolObserverConfig;
 use clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
+use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::build_contract_interface;
 use clarinet_lib::clarity_repl::repl::settings::InitialContract;
 use clarinet_lib::clarity_repl::repl::{ClarityInterpreter, Session, SessionSettings};
 use clarinet_lib::types::{StacksTransactionData, TransactionIdentifier};
@@ -78,7 +79,8 @@ impl ContractProcessor {
                 StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
             };
             working_dir.push("stacks");
-            let options = Options::default();
+            let mut options = Options::default();
+            options.create_if_missing(true);
             let contract_id = self.contract_id.clone();
             let db = DB::open_for_read_only(&options, working_dir, true).unwrap();
     
@@ -207,6 +209,11 @@ impl ContractProcessor {
             let db = contract_db_write(&self.storage_driver, &self.contract_id);
             let full_analysis_bytes = serde_json::to_vec(&full_analysis).expect("Unable to serialize block");
             db.put(&self.db_key(DBKey::FullAnalysis), full_analysis_bytes).unwrap();
+            let (diags, analysis, ast) = full_analysis.get(&self.contract_id).unwrap();
+            let interface = build_contract_interface(analysis);
+            let interface_bytes = serde_json::to_vec(&interface).expect("Unable to serialize block");
+            db.put(&self.db_key(DBKey::Interface), interface_bytes).unwrap();
+
             // todo(ludo): finer granularity
             // db.put(format!("{}::ast", contract_id).as_bytes(), full_analysis_bytes).unwrap();
             // db.put(format!("{}::diags", contract_id).as_bytes(), full_analysis_bytes).unwrap();

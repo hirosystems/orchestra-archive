@@ -3,7 +3,7 @@ import { MouseEvent } from 'react';
 import styled from "styled-components"
 import { useRootDispatch, useRootSelector } from "../../hooks/useRootSelector";
 import { watchContractField } from '../../states/NetworkingState';
-import { activateField, selectActiveContractIdentifier, selectActiveField } from "../../states/StateExplorerState";
+import { activateField, selectActiveFieldIdentifier } from "../../states/StateExplorerState";
 
 const Container = styled.div`
     color: rgb(55, 53, 47);
@@ -48,10 +48,9 @@ const Tag = styled.div`
 
 const ContractField = (props: { fieldName: string, fieldType: string, contractIdentifier: string }) => {
     let dispatch = useRootDispatch();
-    const activeContractIdentifier = useRootSelector(selectActiveContractIdentifier);
-    const activeField = useRootSelector(selectActiveField);
-    let isContractActive = activeContractIdentifier !== undefined && props.contractIdentifier === activeContractIdentifier;
-    let isFieldActive = isContractActive && activeField !== undefined && activeField === props.fieldName;
+    const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);
+    let fieldIdentifier = `${props.contractIdentifier}::${props.fieldName}`;
+    let isFieldActive = activeFieldIdentifier !== undefined && activeFieldIdentifier === fieldIdentifier;
 
     function handleClick(event: MouseEvent) {
         event.preventDefault();

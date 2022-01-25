@@ -39,7 +39,7 @@ export enum StateExplorerState {
 }
 
 export interface Request {
-  project_id: number;
+  protocol_id: number;
   request: any;
 }
 
@@ -81,6 +81,7 @@ export enum FieldValues {
 
 export interface VarValuesData {
   value: string;
+  value_type: any;
   events: Array<number>;
   events_page_size: number;
   events_page_index: number;
@@ -90,6 +91,8 @@ export interface MapValuesData {
   pairs: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   pairs_page_size: number;
   pairs_page_index: number;
+  key_type: any;
+  value_type: any;
   events: Array<number>;
   events_page_size: number;
   events_page_index: number;
@@ -99,6 +102,7 @@ export interface NftValuesData {
   tokens: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   tokens_page_size: number;
   tokens_page_index: number;
+  token_type: any;
   events: Array<number>;
   events_page_size: number;
   events_page_index: number;
@@ -217,7 +221,7 @@ export const networkingSlice = createSlice({
         ],
       ]);
       let payload = {
-        project_id: 0,
+        protocol_id: 1,
         request: request,
       };
 
@@ -236,7 +240,7 @@ export const networkingSlice = createSlice({
 
     //   let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
     //   let payload = {
-    //     project_id: 0,
+    //     protocol_id: 0,
     //     request: request,
     //   };
 
@@ -279,7 +283,7 @@ export const networkingSlice = createSlice({
 
       // let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
       let payload = {
-        project_id: 0,
+        protocol_id: 1,
         request: {
           "StateExplorerWatch": inner
         },
@@ -297,7 +301,7 @@ export const networkingSlice = createSlice({
 
       // let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
       // let payload = {
-      //   project_id: 0,
+      //   protocol_id: 0,
       //   request: request,
       // };
 

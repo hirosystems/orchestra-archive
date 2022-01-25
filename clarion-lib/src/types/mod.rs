@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, HashSet, HashMap};
+use std::sync::mpsc::Sender;
+use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterfaceAtomType, ContractInterface};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
-use clarinet_lib::types::AccountIdentifier;
+use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ClarionPid(pub u64);
@@ -11,13 +13,12 @@ pub struct TriggerId {
     pub lambda_id: u64,
 }
 
-
 #[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
-pub struct ContractsObserverId(pub u64);
+pub struct ProtocolObserverId(pub u64);
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ContractsObserverConfig {
-    pub identifier: ContractsObserverId,
+pub struct ProtocolObserverConfig {
+    pub identifier: ProtocolObserverId,
     pub project: ProjectMetadata,
     pub lambdas: Vec<Lambda>,
     pub contracts: BTreeMap<QualifiedContractIdentifier, ContractSettings>,
@@ -120,4 +121,81 @@ impl StacksChainPredicates {
             watching_any_block_activity: HashSet::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum FieldValues {
+    Var(VarValues),
+    Map(MapValues),
+    Nft(NftValues),
+    Ft(FtValues),
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct VarValues {
+    pub value: String,
+    pub value_type: ContractInterfaceAtomType,
+    pub events: Vec<u8>,
+    pub events_page_size: u16,
+    pub events_page_index: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct MapValues {
+    pub pairs: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
+    pub pairs_page_size: u16,
+    pub pairs_page_index: u64,
+    pub key_type: ContractInterfaceAtomType,
+    pub value_type: ContractInterfaceAtomType,
+    pub events: Vec<u8>,
+    pub events_page_size: u16,
+    pub events_page_index: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct NftValues {
+    pub tokens: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
+    pub tokens_page_size: u16,
+    pub tokens_page_index: u64,
+    pub token_type: ContractInterfaceAtomType,
+    pub events: Vec<u8>,
+    pub events_page_size: u16,
+    pub events_page_index: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct FtValues {
+    pub balances: Vec<((String, u128), BlockIdentifier, TransactionIdentifier)>,
+    pub balances_page_size: u16,
+    pub balances_page_index: u64,
+    // pub total_supply: Option<String>, ;; TODO: not present in ContractInterface :/
+    pub events: Vec<u8>,
+    pub events_page_size: u16,
+    pub events_page_index: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct FieldValuesRequest {
+    pub tx: Sender<FieldValuesResponse>,
+    pub contract_identifier: String,
+    pub field_name: String,
+    pub protocol_id: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct FieldValuesResponse {
+    pub contract_identifier: String,
+    pub field_name: String,
+    pub values: FieldValues,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolRegistration {
+    pub contracts: Vec<Contract>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Contract {
+    pub contract_identifier: String,
+    pub interface: ContractInterface,
 }

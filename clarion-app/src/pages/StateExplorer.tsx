@@ -4,7 +4,7 @@ import { Box } from '@primer/react'
 import { Heading, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { selectFields, selectContractsIdentifiers, selectWallets } from "../states/StateExplorerState";
+import { selectFields, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
 import { initializeStateExplorer } from '../states/NetworkingState';
 import { Wallet } from '../components/Sidebar/Wallet';
 
@@ -15,6 +15,7 @@ function StateExplorer() {
   dispatch(initializeStateExplorer(hardcodedProjectPath));
 
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
+  const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);
   const wallets = useRootSelector(selectWallets);
   const fields = useRootSelector(selectFields);
 
@@ -37,10 +38,9 @@ function StateExplorer() {
               </Dropdown>
                 <TextInput sx={{ pl: 1 }} icon={SearchIcon} />
               </FilteredSearch> */}
-            {contractsIdentifiers.map((contractIdentifier, i) => {
-              return  <Contract key={i} contractIdentifier={contractIdentifier}/>
-            }
-            )}    
+              {contractsIdentifiers.map((contractIdentifier, i) => {
+                return <Contract key={i} contractIdentifier={contractIdentifier}/>
+              })}
             <Section name="Wallets"/>
             {wallets.map((wallet, i) => {
               let fields = [];
@@ -52,7 +52,7 @@ function StateExplorer() {
             )}
         </Box>
         <Box flexGrow={1} p={3}>
-            {JSON.stringify(fields)}
+            {activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : "Empty"}
         </Box>
       </Box>
     </div>

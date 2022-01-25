@@ -10,7 +10,7 @@ export interface StateExplorerState {
   fields: { [fieldIdentifier: string]: string };
   wallets: Array<string>,
   activeContractIdentifier?: string;
-  activeField?: string;
+  activeFieldIdentifier?: string;
 }
 
 
@@ -21,7 +21,7 @@ const initialState: StateExplorerState = {
   contracts: {},
   fields: {},
   activeContractIdentifier: undefined,
-  activeField: undefined,
+  activeFieldIdentifier: undefined,
 };
 
 export const stateExplorerSlice = createSlice({
@@ -32,7 +32,7 @@ export const stateExplorerSlice = createSlice({
       state: StateExplorerState,
       action: PayloadAction<ContractFieldTarget>
     ) => {
-      state.activeField = action.payload.field_name;
+      state.activeFieldIdentifier = `${action.payload.contract_identifier}::${action.payload.field_name}`;
       state.activeContractIdentifier = action.payload.contract_identifier;
     },
     updateContracts: (
@@ -84,7 +84,7 @@ export const selectFields = (state: RootState) =>
 export const selectActiveContractIdentifier = (state: RootState) =>
   state.stateExplorer.activeContractIdentifier;
 
-export const selectActiveField = (state: RootState) =>
-  state.stateExplorer.activeField;
+export const selectActiveFieldIdentifier = (state: RootState) =>
+  state.stateExplorer.activeFieldIdentifier;
 
 export default stateExplorerSlice.reducer;

@@ -1,10 +1,12 @@
-use crate::actors::{ContractProcessor, ContractsObserver, BlockStoreManager,  BlockStoreManagerMessage, ContractProcessorMessage, ContractsObserverMessage};
+use crate::actors::{ContractProcessor, ProtocolObserver, BlockStoreManager,  BlockStoreManagerMessage, ContractProcessorMessage, ProtocolObserverMessage};
 use crate::datastore::StorageDriver;
-use crate::types::{ContractsObserverConfig, ContractsObserverId, TriggerId, BitcoinPredicate, StacksChainPredicates};
+use crate::types::{ProtocolObserverConfig, ProtocolObserverId, TriggerId, BitcoinPredicate, StacksChainPredicates, FieldValues, FieldValuesRequest, ProtocolRegistration};
 use clarinet_lib::types::{StacksTransactionReceipt, StacksBlockData, BitcoinBlockData, BitcoinChainEvent, StacksChainEvent, StacksTransactionData};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
+use std::sync::mpsc::Sender;
 use kompact::prelude::*;
+use rocksdb::DB;
 
 use opentelemetry::{global, trace::Span};
 use opentelemetry::trace::{Tracer};
@@ -13,9 +15,11 @@ use super::contract_processor::{ContractProcessorEvent, ContractProcessorPort};
 
 #[derive(Clone, Debug)]
 pub enum ClarionSupervisorMessage {
-    RegisterContractsObserver(ContractsObserverConfig),
+    RegisterProtocolObserver(ProtocolObserverConfig),
+    GetProtocolInterfaces(ProtocolObserverId, Sender<ProtocolRegistration>),
     ProcessStacksChainEvent(StacksChainEvent),
     ProcessBitcoinChainEvent(BitcoinChainEvent),
+    GetFieldValues(FieldValuesRequest),
     Exit,
 }
 
@@ -23,8 +27,8 @@ pub enum ClarionSupervisorMessage {
 pub struct ClarionSupervisor {
     ctx: ComponentContext<Self>,
     active_contracts_processors: HashMap<String, ActorRef<ContractProcessorMessage>>,
-    active_contracts_observers: HashMap<ContractsObserverId, ActorRef<ContractsObserverMessage>>,
-    contracts_processors_subscriptions: BTreeMap<String, BTreeSet<ContractsObserverId>>,
+    active_protocol_observers: HashMap<ProtocolObserverId, ActorRef<ProtocolObserverMessage>>,
+    contracts_processors_subscriptions: BTreeMap<String, BTreeSet<ProtocolObserverId>>,
     block_store_manager: Option<ActorRef<BlockStoreManagerMessage>>, // Todo: switch to event instead
     registered_contracts: HashSet<String>,
     storage_driver: StorageDriver,
@@ -42,6 +46,19 @@ impl ComponentLifecycle for ClarionSupervisor {
 
     fn on_start(&mut self) -> Handled {
         info!(self.log(), "ClarionSupervisor starting");
+
+        // Ensure that we have access to storage by opening early connections
+        match self.storage_driver {
+            StorageDriver::Filesystem(ref config) => {
+                let mut bitcoin_path = config.working_dir.clone();
+                bitcoin_path.push("bitcoin");
+                let _db = DB::open_default(bitcoin_path).unwrap();
+                let mut stacks_path = config.working_dir.clone();
+                stacks_path.push("stacks");
+                let _db = DB::open_default(stacks_path).unwrap();
+            }
+        }
+
         Handled::Ok
     }
 
@@ -61,7 +78,7 @@ impl Actor for ClarionSupervisor {
             .install_simple().unwrap();
 
         let mut span = match msg {
-            ClarionSupervisorMessage::RegisterContractsObserver(manifest) => {
+            ClarionSupervisorMessage::RegisterProtocolObserver(manifest) => {
                 let mut span = tracer.start("register_contracts_observer");
                 self.register_contracts_observer(manifest);
                 span
@@ -74,6 +91,26 @@ impl Actor for ClarionSupervisor {
             ClarionSupervisorMessage::ProcessBitcoinChainEvent(event) => {
                 let mut span = tracer.start("handle_bitcoin_chain_event");
                 self.handle_bitcoin_chain_event(event);
+                span
+            }
+            ClarionSupervisorMessage::GetProtocolInterfaces(protocol_id, tx) => {
+                let mut span = tracer.start("register_local_contracts_observer");
+                let worker = match self.active_protocol_observers.get(&protocol_id) {
+                    Some(entry) => entry,
+                    None => unreachable!(),
+                };
+                let res = worker.tell(ProtocolObserverMessage::GetInterfaces(tx));
+                span
+            }
+            ClarionSupervisorMessage::GetFieldValues(request) => {
+                let mut span = tracer.start("handle_request_field_value");
+                info!(self.ctx.log(), "Contracts observers registered: {:?}", self.active_protocol_observers);
+
+                let worker = match self.active_protocol_observers.get(&ProtocolObserverId(request.protocol_id)) {
+                    Some(entry) => entry,
+                    None => unreachable!(),
+                };
+                let res = worker.tell(ProtocolObserverMessage::RequestFieldValues(request));
                 span
             }
             ClarionSupervisorMessage::Exit => {
@@ -103,14 +140,14 @@ impl Require<ContractProcessorPort> for ClarionSupervisor {
                     None => unreachable!()
                 };
 
-                for observer_id in subscriptions.iter() {
+                for protocol_id in subscriptions.iter() {
                     info!(self.ctx.log(), "Notifying contract observer");
 
-                    let worker = match self.active_contracts_observers.get(observer_id) {
-                        Some(entry) => entry,
-                        None => unreachable!(),
-                    };
-                    worker.tell(ContractsObserverMessage::ProcessChain);
+                    // let worker = match self.active_protocol_observers.get(protocol_id) {
+                    //     Some(entry) => entry,
+                    //     None => unreachable!(),
+                    // };
+                    // worker.tell(ProtocolObserverMessage::ProcessChain);
                 }
             }
         }
@@ -131,16 +168,16 @@ impl ClarionSupervisor {
             storage_driver,
             block_store_manager: None,
             active_contracts_processors: HashMap::new(),
-            active_contracts_observers: HashMap::new(),
+            active_protocol_observers: HashMap::new(),
             contracts_processors_subscriptions: BTreeMap::new(),
         }
     }
 
-    pub fn register_contracts_observer(&mut self, observer_config: ContractsObserverConfig) {
+    pub fn register_contracts_observer(&mut self, observer_config: ProtocolObserverConfig) {
 
-        let observer_identifier = &observer_config.identifier;
+        let protocol_identifier = &observer_config.identifier;
 
-        if self.active_contracts_observers.contains_key(&observer_identifier) {
+        if self.active_protocol_observers.contains_key(&protocol_identifier) {
             // todo: or maybe reboot process instead?
             return
         } else {
@@ -162,11 +199,11 @@ impl ClarionSupervisor {
 
             match self.contracts_processors_subscriptions.entry(contract_id_ser) {
                 Entry::Occupied(observers) => {
-                    observers.into_mut().insert(observer_identifier.clone());
+                    observers.into_mut().insert(protocol_identifier.clone());
                 }
                 Entry::Vacant(entry) => {
                     let mut observers = BTreeSet::new();
-                    observers.insert(observer_identifier.clone());
+                    observers.insert(protocol_identifier.clone());
                     entry.insert(observers);
                 }
             };
@@ -181,11 +218,11 @@ impl ClarionSupervisor {
         self.active_contracts_processors.insert(contract_id, worker.actor_ref());
     }
 
-    pub fn start_contracts_observer(&mut self, observer_config: &ContractsObserverConfig) {
+    pub fn start_contracts_observer(&mut self, observer_config: &ProtocolObserverConfig) {
         let system = self.ctx.system();
-        let worker = system.create(|| ContractsObserver::new(self.storage_driver.clone(), observer_config.clone()));
+        let worker = system.create(|| ProtocolObserver::new(self.storage_driver.clone(), observer_config.clone()));
         system.start(&worker);
-        self.active_contracts_observers.insert(observer_config.identifier.clone(), worker.actor_ref());
+        self.active_protocol_observers.insert(observer_config.identifier.clone(), worker.actor_ref());
     }
 
     pub fn start_block_store_manager(&mut self) {

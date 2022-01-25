@@ -5,6 +5,7 @@ use super::StorageDriver;
 
 pub enum DBKey <'a> {
     FullAnalysis,
+    Interface,
     Var(&'a str),
     Map(&'a str, &'a str),
     FT(&'a str, &'a str),
@@ -36,10 +37,11 @@ pub fn contract_db_write(storage_driver: &StorageDriver, contract_id: &str) -> D
 
 pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
     match key {
-        DBKey::FullAnalysis => format!("{}::analysis", contract_id).as_bytes().to_vec(),
-        DBKey::Var(var) => format!("{}::var::{}", contract_id, var).as_bytes().to_vec(),
-        DBKey::Map(map, key) => format!("{}::map::{}::{}", contract_id, map, key).as_bytes().to_vec(),
-        DBKey::FT(ft, owner) => format!("{}::ft::{}", ft, owner).as_bytes().to_vec(),
-        DBKey::NFT(nft, owner) => format!("{}::nft::{}", nft, owner).as_bytes().to_vec(),
+        DBKey::FullAnalysis => format!("{}::@analysis", contract_id).as_bytes().to_vec(),
+        DBKey::Interface => format!("{}::@interface", contract_id).as_bytes().to_vec(),
+        DBKey::Var(var) => format!("{}::{}", contract_id, var).as_bytes().to_vec(),
+        DBKey::Map(map, key) => format!("{}::{}::entry({})", contract_id, map, key).as_bytes().to_vec(),
+        DBKey::FT(ft, owner) => format!("{}::owner({})", ft, owner).as_bytes().to_vec(),
+        DBKey::NFT(nft, owner) => format!("{}::owner({})", nft, owner).as_bytes().to_vec(),
     }
 }

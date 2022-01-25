@@ -1,11 +1,11 @@
 mod supervisor;
 mod contract_processor;
-mod contracts_observer;
+mod protocol_observer;
 mod block_store_manager;
 
 pub use supervisor::{ClarionSupervisor, ClarionSupervisorMessage};
 pub use contract_processor::{ContractProcessor, ContractProcessorMessage};
-pub use contracts_observer::{ContractsObserver, ContractsObserverMessage};
+pub use protocol_observer::{ProtocolObserver, ProtocolObserverMessage};
 pub use block_store_manager::{BlockStoreManager, BlockStoreManagerMessage};
 
 use std::sync::mpsc::{Receiver};
@@ -39,8 +39,13 @@ pub async fn do_run_supervisor(
     storage_driver: StorageDriver,
     supervisor_cmd_rx: Receiver<ClarionSupervisorMessage>,
 ) -> Result<(), String> {
+    // let drain = slog::Discard;
+    // let log  = slog::Logger::root(drain, o!());
+    // let log = Logger::root(slog_term::term_compact().fuse(),
+    // o!("version" => env!("CARGO_PKG_VERSION")));
+
+    // info!(log, "Spawning supervisor");
     let system = KompactConfig::default().build().expect("system");
-    
     let supervisor: Arc<Component<ClarionSupervisor>> = system.create(|| ClarionSupervisor::new(storage_driver) );
     system.start(&supervisor);
     let supervisor_ref = supervisor.actor_ref();
@@ -172,7 +177,7 @@ mod test {
 
     #[test]
     fn spawn_integrated_supervisor() {
-        use crate::types::{ContractSettings, ContractsObserverConfig, ProjectMetadata, ContractsObserverId};
+        use crate::types::{ContractSettings, ProtocolObserverConfig, ProjectMetadata, ProtocolObserverId};
         use crate::actors::run_supervisor;
         use clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
         use clarinet_lib::types::events::*;
@@ -200,8 +205,8 @@ mod test {
             run_supervisor(storage_driver_moved, rx)
         });
 
-        let clarion_manifest = ContractsObserverConfig {
-            identifier: ContractsObserverId(0),
+        let clarion_manifest = ProtocolObserverConfig {
+            identifier: ProtocolObserverId(0),
             project: ProjectMetadata {
                 name: "test".into(),
                 authors: vec![],
@@ -221,7 +226,7 @@ mod test {
         let delay = time::Duration::from_millis(100);
         thread::sleep(delay);
 
-        tx.send(ClarionSupervisorMessage::RegisterContractsObserver(clarion_manifest)).unwrap();
+        tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(clarion_manifest)).unwrap();
 
         let mut transaction = transaction_contract_call_impacting_contract_id(test_contract_id.to_string(), true);
         transaction.metadata.receipt.events.append(&mut vec![
