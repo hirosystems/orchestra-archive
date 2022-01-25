@@ -548,6 +548,7 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
             Ok(response)
         };
         let mut websocket = accept_hdr(stream, callback).unwrap();
+        let mut initialized = false;
 
         loop {
             let msg = websocket.read_message().unwrap();
@@ -572,9 +573,19 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                     };
                     println!("WS: command received: \n{}\n{}", msg, json!(poll_state).to_string());
                     let response_expected = if let Ok(app_state) = serde_json::from_str::<PollState>(&msg) {
-                        println!("WS: NetworkCommand received {:?}", app_state);
-                        frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
-                        true
+                        if let NetworkRequest::StateExplorerInitialization(_) = app_state.request {
+                            if !initialized {
+                                println!("WS: NetworkCommand received {:?}", app_state);
+                                frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
+                                initialized = true;
+                                true
+                            } else {
+                                false
+                            }    
+                        } else {
+                            frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
+                            true
+                        }
                     } else {
                         false
                     };

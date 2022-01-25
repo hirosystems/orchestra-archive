@@ -21,15 +21,13 @@ const NetworkingProvider = (props: ISocketProvider) => {
     let dispatch = useRootDispatch();
     let requestQueue = useRootSelector(selectRequestQueue);
 
-    useInterval(
-        () => {
-            if (requestQueue.nextRequest) {
-                let req = JSON.stringify(requestQueue.nextRequest);
-                ws.send(req);
-                dispatch(dequeueRequest(requestQueue.nextRequest));
-            }
-    }, WS_POLL_INTERVAL);
-
+    const performRequest = () => {
+        if (requestQueue.nextRequest) {
+            let req = JSON.stringify(requestQueue.nextRequest);
+            ws.send(req);
+            dispatch(dequeueRequest(requestQueue.nextRequest));
+        }
+    };
 
     const onMessage = useCallback((message) => {
         const data: StateExplorerStateUpdate = JSON.parse(message?.data);
@@ -50,23 +48,9 @@ const NetworkingProvider = (props: ISocketProvider) => {
         };
     }, [onMessage]);
 
-    // useEffect(() => {
-    //     if (requestQueue.nextRequest) {
-    //         let req = JSON.stringify(requestQueue.nextRequest);
-    //         alert(req);
-    //         ws.send(req);
-    //         dispatch(dequeueRequest(requestQueue.nextRequest));
-    //     }
-        // let timer1 = setTimeout(() => {
-        //     if (requestQueue.nextRequest) {            
-        //         ws.send(JSON.stringify(requestQueue.nextRequest));
-        //         dispatch(dequeueRequest(requestQueue.nextRequest));
-        //     }
-        // }, WS_POLL_INTERVAL);
-        // return () => {
-        //     clearTimeout(timer1);
-        // };
-    // });
+    useEffect(() => performRequest());
+
+    useInterval(() => performRequest(), WS_POLL_INTERVAL);
 
     return (
         <SocketContext.Provider value={ws}>{props.children}</SocketContext.Provider>
