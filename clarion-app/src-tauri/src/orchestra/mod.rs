@@ -33,8 +33,8 @@ pub struct PollState {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum NetworkRequest {
     StateExplorerInitialization(StateExplorerInitialization),
+    StateExplorerWatch(StateExplorerWatch),
     StateExplorerSync(StateExplorerSync),
-    StateExplorerActive(StateExplorerActive),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -50,18 +50,34 @@ pub struct StateExplorerSync {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct StateExplorerActive {
+pub struct StateExplorerWatch {
     stacks_block_identifier: BlockIdentifier,
     bitcoin_block_identifier: BlockIdentifier,
+    target: StateExplorerWatchTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum StateExplorerWatchTarget {
+    ContractField(ContractFieldData),
+    Wallet(WalletData)
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ContractFieldData {
     contract_identifier: String,
-    field: String,
+    field_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct WalletData {
+    address: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum NetworkResponse {
     StateExplorerInitialization(StateExplorerInitializationUpdate),
     StateExplorerSync(StateExplorerSyncUpdate),
-    StateExplorerActive(StateExplorerActiveUpdate),
+    StateExplorerWatch(StateExplorerWatchUpdate),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -84,9 +100,11 @@ pub struct StateExplorerSyncUpdate {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct StateExplorerActiveUpdate {
-    stacks_chain_blocks: Vec<StacksChainEvent>,
-    bitcoin_chain_blocks: Vec<BitcoinChainEvent>, 
+pub struct StateExplorerWatchUpdate {
+    stacks_chain_blocks: Vec<StacksBlockData>,
+    bitcoin_chain_blocks: Vec<BitcoinBlockData>, 
+    contract_identifier: String,
+    field_name: String,
     field_values: FieldValues, 
 }
 
@@ -101,33 +119,39 @@ pub enum FieldValues {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct VarValues {
     value: String,
-    page_size: u16,
-    page_index: u64,
     events: Vec<u8>,
+    events_page_size: u16,
+    events_page_index: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct MapValues {
     pairs: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
-    page_size: u16,
-    page_index: u64,
+    pairs_page_size: u16,
+    pairs_page_index: u64,
     events: Vec<u8>,
+    events_page_size: u16,
+    events_page_index: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct NftValues {
     tokens: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
-    page_size: u16,
-    page_index: u64,
+    tokens_page_size: u16,
+    tokens_page_index: u64,
     events: Vec<u8>,
+    events_page_size: u16,
+    events_page_index: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct FtValues {
     balances: Vec<((String, u128), BlockIdentifier, TransactionIdentifier)>,
-    page_size: u16,
-    page_index: u64,
+    balances_page_size: u16,
+    balances_page_index: u64,
     events: Vec<u8>,
+    events_page_size: u16,
+    events_page_index: u64,
 }
 
 pub struct GlobalState {
@@ -187,7 +211,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
         state_explorer_enabled: true,
         api_generator_enabled: vec![],
     };
-    contracts.insert(test_contract_id, test_contract_settings);
+    contracts.insert(test_contract_id.clone(), test_contract_settings);
 
     let clarion_manifest = ContractsObserverConfig {
         identifier: ContractsObserverId(1),
@@ -224,15 +248,18 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                 expected_contracts_identifiers: vec![]
                             })
                         }
-                        NetworkRequest::StateExplorerActive(state) => {
-                            NetworkResponse::StateExplorerActive(StateExplorerActiveUpdate {
+                        NetworkRequest::StateExplorerWatch(state) => {
+                            NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
                                 stacks_chain_blocks: vec![],
                                 bitcoin_chain_blocks: vec![],
+                                contract_identifier: test_contract_id.to_string(),
+                                field_name: "test".to_string(),
                                 field_values: FieldValues::Var(VarValues {
                                     value: "101".to_string(),
-                                    page_size: 0,
-                                    page_index: 0,
-                                    events: vec![]
+                                    events: vec![],
+                                    events_page_size: 0,
+                                    events_page_index: 0,
+
                                 }),
                             })
                         }
@@ -350,21 +377,29 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                 expected_contracts_identifiers: vec![]
                             })
                         }
-                        NetworkRequest::StateExplorerActive(state) => {
+                        NetworkRequest::StateExplorerWatch(state) => {
 
                             let bitcoin_chain_tip = get_bitcoin_chain_tip(Some(&state.bitcoin_block_identifier));
                             let stacks_chain_tip = get_stacks_chain_tip(Some(&state.bitcoin_block_identifier));
 
-                            NetworkResponse::StateExplorerActive(StateExplorerActiveUpdate {
-                                stacks_chain_blocks: vec![],
-                                bitcoin_chain_blocks: vec![],
-                                field_values: FieldValues::Var(VarValues {
-                                    value: "101".to_string(),
-                                    page_size: 0,
-                                    page_index: 0,
-                                    events: vec![]
-                                }),
-                            })
+                            match state.target {
+                                StateExplorerWatchTarget::ContractField(contract_field) => {
+                                    println!("--> {:?}", contract_field);
+                                    NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
+                                        stacks_chain_blocks: vec![],
+                                        bitcoin_chain_blocks: vec![],
+                                        contract_identifier: contract_field.contract_identifier.to_string(),
+                                        field_name: contract_field.field_name.to_string(),
+                                        field_values: FieldValues::Var(VarValues {
+                                            value: "101".to_string(),
+                                            events: vec![],
+                                            events_page_size: 0,
+                                            events_page_index: 0,
+                                        }),
+                                    })
+                                }
+                                _ => unreachable!()
+                            }
                         }
                     };
                     backend_cmd_tx.send(BackendCommand::Poll(update)).unwrap();
@@ -524,9 +559,20 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                     //         manifest_path: "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml".into()
                     //     })
                     // };
-                    // println!("WS: command received: \n{}\n{}", msg, json!(poll_state).to_string());
+                    let poll_state = PollState {
+                        project_id: 0,
+                        request: NetworkRequest::StateExplorerWatch(StateExplorerWatch {
+                            stacks_block_identifier: BlockIdentifier { index: 1, hash: "1".to_string() },
+                            bitcoin_block_identifier: BlockIdentifier { index: 1, hash: "1".to_string() },
+                            target: StateExplorerWatchTarget::ContractField(ContractFieldData {
+                                contract_identifier: "1".to_string(),
+                                field_name: "var".to_string(),
+                            })
+                        })
+                    };
+                    println!("WS: command received: \n{}\n{}", msg, json!(poll_state).to_string());
                     let response_expected = if let Ok(app_state) = serde_json::from_str::<PollState>(&msg) {
-                        println!("WS: NetworkCommand received");
+                        println!("WS: NetworkCommand received {:?}", app_state);
                         frontend_cmd_tx.send(FrontendCommand::PollState(app_state)).expect("Link broken");
                         true
                     } else {
@@ -559,7 +605,9 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                             }).to_string())).expect("Link broken");
                         },
                         BackendCommand::Poll(update) => {
-                            println!("Update {:?} received!", update);
+                            println!("Sending {} received!", json!({
+                                "update": update
+                            }));
                             websocket.write_message(Message::Text(json!({
                                 "update": update
                             }).to_string()))

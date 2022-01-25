@@ -2,6 +2,7 @@ import { Text } from '@primer/react'
 import { MouseEvent } from 'react';
 import styled from "styled-components"
 import { useRootDispatch, useRootSelector } from "../../hooks/useRootSelector";
+import { watchContractField } from '../../states/NetworkingState';
 import { activateField, selectActiveContractIdentifier, selectActiveField } from "../../states/StateExplorerState";
 
 const Container = styled.div`
@@ -12,7 +13,6 @@ const Container = styled.div`
     letter-space: 0.03em;
     padding: 4px;
     margin-top: 8px;
-    margin-left: 12px;
     -webkit-user-select: none;      
     -moz-user-select: none;
     -ms-user-select: none;
@@ -38,7 +38,7 @@ const Tag = styled.div`
     background-color: rgb(221, 244, 255);
     margin-top: 8px;
     margin-left: 16px;
-    -webkit-user-select: none;      
+    -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
@@ -55,8 +55,8 @@ const ContractField = (props: { fieldName: string, fieldType: string, contractId
 
     function handleClick(event: MouseEvent) {
         event.preventDefault();
-        let payload = { fieldName: props.fieldName, contractIdentifier: props.contractIdentifier };
-        alert(payload);
+        let payload = { field_name: props.fieldName, contract_identifier: props.contractIdentifier };
+        dispatch(watchContractField(payload));
         dispatch(activateField(payload));
     }
     

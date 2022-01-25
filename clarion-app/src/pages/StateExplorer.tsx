@@ -4,8 +4,9 @@ import { Box } from '@primer/react'
 import { Heading, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { selectContracts, selectContractsIdentifiers, selectActiveContractIdentifier } from "../states/StateExplorerState";
+import { selectFields, selectContractsIdentifiers, selectWallets } from "../states/StateExplorerState";
 import { initializeStateExplorer } from '../states/NetworkingState';
+import { Wallet } from '../components/Sidebar/Wallet';
 
 function StateExplorer() {
 
@@ -13,8 +14,9 @@ function StateExplorer() {
   let hardcodedProjectPath = "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml";
   dispatch(initializeStateExplorer(hardcodedProjectPath));
 
-  const contracts = useRootSelector(selectContracts);
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
+  const wallets = useRootSelector(selectWallets);
+  const fields = useRootSelector(selectFields);
 
   return (
     <div>
@@ -36,43 +38,21 @@ function StateExplorer() {
                 <TextInput sx={{ pl: 1 }} icon={SearchIcon} />
               </FilteredSearch> */}
             {contractsIdentifiers.map((contractIdentifier, i) => {
-              let fields = [];
-
-              fields.push(
-                <Contract contractIdentifier={contractIdentifier}/>
-              )
-              let index = 0;
-              for (const v of contracts.get(contractIdentifier)!.variables) {
-                fields.push(
-                  <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={contractIdentifier} />
-                )
-                index += 1;
-              }
-              for (const v of contracts.get(contractIdentifier)!.maps) {
-                fields.push(
-                  <ContractField key={index} fieldName={v.name} fieldType="map" contractIdentifier={contractIdentifier} />
-                )
-                index += 1;
-              }
-              for (const v of contracts.get(contractIdentifier)!.fungible_tokens) {
-                fields.push(
-                  <ContractField key={index} fieldName={v.name} fieldType="ft" contractIdentifier={contractIdentifier} />
-                )
-                index += 1;
-              }
-              for (const v of contracts.get(contractIdentifier)!.non_fungible_tokens) {
-                fields.push(
-                  <ContractField key={index} fieldName={v.name} fieldType="nft" contractIdentifier={contractIdentifier} />
-                )
-                index += 1;
-              }
-              return fields
+              return  <Contract key={i} contractIdentifier={contractIdentifier}/>
             }
             )}    
             <Section name="Wallets"/>
+            {wallets.map((wallet, i) => {
+              let fields = [];
+              fields.push(
+                <Wallet key={i} walletAddress={wallet}/>
+              )
+              return fields
+            }
+            )}
         </Box>
         <Box flexGrow={1} p={3}>
-
+            {JSON.stringify(fields)}
         </Box>
       </Box>
     </div>

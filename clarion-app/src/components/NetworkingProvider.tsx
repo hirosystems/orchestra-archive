@@ -1,12 +1,14 @@
 import { useEffect, useCallback, createContext, ReactChild } from "react";
-import { updateContracts } from "../states/StateExplorerState";
+import { updateContracts, updateField } from "../states/StateExplorerState";
 import { useInterval } from '../hooks';
-import { selectRequest, selectShouldPoll } from '../states/NetworkingState';
+import { selectRequestQueue, StateExplorerStateUpdate, StateExplorerStateUpdateInit, StateExplorerStateUpdateInitData, StateExplorerStateUpdateWatchData, dequeueRequest, StateExplorerStateUpdateWatch } from '../states/NetworkingState';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { PollStateUpdate, ContractStateReady } from "../types";
+import { Contract } from "../types";
 
+const WS_ADDRESS = "ws://127.0.0.1:2404";
+const WS_POLL_INTERVAL = 5000;
 
-const ws = new WebSocket("ws://127.0.0.1:2404");
+const ws = new WebSocket(WS_ADDRESS);
 
 const SocketContext = createContext(ws);
 
@@ -17,24 +19,29 @@ interface ISocketProvider {
 const NetworkingProvider = (props: ISocketProvider) => {
 
     let dispatch = useRootDispatch();
-    const request = useRootSelector(selectRequest);
-    const shouldPoll = useRootSelector(selectShouldPoll);
-    
+    let requestQueue = useRootSelector(selectRequestQueue);
+
     useInterval(
         () => {
-            ws.send(JSON.stringify(request));
-        }, shouldPoll ? 5000 : null);
+            if (requestQueue.nextRequest) {
+                let req = JSON.stringify(requestQueue.nextRequest);
+                ws.send(req);
+                dispatch(dequeueRequest(requestQueue.nextRequest));
+            }
+    }, WS_POLL_INTERVAL);
+
 
     const onMessage = useCallback((message) => {
-
-        const data: PollStateUpdate = JSON.parse(message?.data);
-
-        if (data.update.StateExplorerInitialization) {
-            let value: any = { ...data.update.StateExplorerInitialization };
-            let contracts: Array<ContractStateReady> = value.contracts;
+        const data: StateExplorerStateUpdate = JSON.parse(message?.data);
+        if ('StateExplorerInitialization' in data.update) {
+            let payload = {...data.update.StateExplorerInitialization};
+            let contracts: Array<Contract> = payload.contracts;
             dispatch(updateContracts(contracts));
+        } else if ('StateExplorerWatch' in data.update) {
+            let payload = {...data.update.StateExplorerWatch};
+            dispatch(updateField(payload));
         }
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         ws.addEventListener("message", onMessage);
@@ -42,6 +49,24 @@ const NetworkingProvider = (props: ISocketProvider) => {
             ws.removeEventListener("message", onMessage);
         };
     }, [onMessage]);
+
+    // useEffect(() => {
+    //     if (requestQueue.nextRequest) {
+    //         let req = JSON.stringify(requestQueue.nextRequest);
+    //         alert(req);
+    //         ws.send(req);
+    //         dispatch(dequeueRequest(requestQueue.nextRequest));
+    //     }
+        // let timer1 = setTimeout(() => {
+        //     if (requestQueue.nextRequest) {            
+        //         ws.send(JSON.stringify(requestQueue.nextRequest));
+        //         dispatch(dequeueRequest(requestQueue.nextRequest));
+        //     }
+        // }, WS_POLL_INTERVAL);
+        // return () => {
+        //     clearTimeout(timer1);
+        // };
+    // });
 
     return (
         <SocketContext.Provider value={ws}>{props.children}</SocketContext.Provider>

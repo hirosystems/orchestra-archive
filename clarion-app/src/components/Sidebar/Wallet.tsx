@@ -3,35 +3,32 @@ import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
-    width: 256px;
-    color: rgba(55, 53, 47, 0.4);
+    color: rgb(55, 53, 47);
     text-transform: uppercase;
     font-size: 11.5px;
     font-weight: 600;
     letter-space: 0.03em;
-    margin-top: 24px;
+    margin-top: 16px;
+    margin-left: 12px;
     -webkit-user-select: none;      
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
     cursor: default;
-    padding: 4px;
-    a:hover { 
-        background-color: yellow;
-    }
 `
 
-const Section = (props: { name: String }) => {
+const Wallet = (props: { walletAddress: String }) => {
 
     function handleClick(event: MouseEvent) {
         event.preventDefault();
+        alert(event.currentTarget.tagName); 
     }
     
     return (
         <Container onClick={handleClick}>
-            {props.name}
+            <Text> {props.walletAddress}</Text>
         </Container>
     );
 };
 
-export { Section };
+export { Wallet };

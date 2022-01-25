@@ -7,83 +7,85 @@ import {
   DataNftField
 } from "./clarinet";
 
-export enum PollState {
-  None = "None",
-  Initialization = "StateExplorerInitialization",
-  Sync = "StateExplorerSync",
-  Active = "StateExplorerActive",
-}
+// export enum PollState {
+//   None = "None",
+//   StateExplorerInitialization = "StateExplorerInitialization",
+//   StateExplorerSync = "StateExplorerSync",
+//   StateExplorerWatch = "StateExplorerWatch",
+// }
 
-export type PollStateData = Record<
-  PollState,
-  PollStateNone | PollStateInitialization | PollStateSync | PollStateActive
->;
-export type PollStateUpdateData = Record<
-  PollState,
-  PollStateInitializationUpdate | PollStateSyncUpdate | PollStateActiveUpdate
->;
+// export type PollStateData = Record<
+//   PollState,
+//   PollStateNone | PollStateInitialization | PollStateSync | PollStateActive
+// >;
+// export type PollStateUpdateData = Record<
+//   PollState,
+//   PollStateInitializationUpdate | PollStateSyncUpdate | PollStateActiveUpdate
+// >;
 
-export interface PollStateUpdate {
-  update: PollStateUpdateData;
-}
+// export interface PollStateUpdate {
+//   update: PollStateUpdateData;
+// }
 
-export interface PollStateNone {}
+// export interface PollStateNone {}
 
-export interface PollStateInitialization {
-  manifest_path: string;
-}
+// export interface PollStateInitialization {
+//   manifest_path: string;
+// }
 
-export interface PollStateSync {
-  stacks_chain_tip?: BlockIdentifier;
-  bitcoin_chain_tip?: BlockIdentifier;
-  expected_contracts_identifiers: string[];
-}
+// export interface PollStateSync {
+//   stacks_chain_tip?: BlockIdentifier;
+//   bitcoin_chain_tip?: BlockIdentifier;
+//   expected_contracts_identifiers: string[];
+// }
 
-export interface PollStateActive {
-  stacks_chain_tip: BlockIdentifier;
-  bitcoin_chain_tip: BlockIdentifier;
-  contract_identifier: string;
-  field: string;
-}
+// export interface PollStateActive {
+//   stacks_chain_tip: BlockIdentifier;
+//   bitcoin_chain_tip: BlockIdentifier;
+//   contract_identifier: string;
+//   field: string;
+// }
 
-export interface PollStateInitializationUpdate {
-  contracts: Contract[];
-}
+// export interface PollStateInitializationUpdate {
+//   contracts: Contract[];
+// }
+
+
+// export interface PollStateSyncUpdate {
+//   stacks_chain_tip: Block;
+//   bitcoin_chain_tip: Block;
+//   contracts: Contract[];
+//   expected_contracts_identifiers: string[];
+// }
+
+// export interface PollStateActiveUpdate {
+//   bitcoin_chain_blocks: Block[];
+//   stacks_chain_blocks: Block[];
+//   field_values: any;
+// }
+
+// export enum ContractState {
+//   Indexing = "Indexing",
+//   Ready = "Ready",
+// }
+
+// export interface ContractStateIndexing {}
+
+// export interface ContractStateReady {
+//   contract_identifier: string;
+//   interface: StacksContractInterface;
+// }
+
+// export type ContractStateData = Record<
+//   ContractState,
+//   ContractStateIndexing | ContractStateReady
+// >;
+
 
 export interface Contract {
   contract_identifier: string;
   interface: StacksContractInterface;
 }
-
-export interface PollStateSyncUpdate {
-  stacks_chain_tip: Block;
-  bitcoin_chain_tip: Block;
-  contracts: Contract[];
-  expected_contracts_identifiers: string[];
-}
-
-export interface PollStateActiveUpdate {
-  bitcoin_chain_blocks: Block[];
-  stacks_chain_blocks: Block[];
-  field_values: any;
-}
-
-export enum ContractState {
-  Indexing = "Indexing",
-  Ready = "Ready",
-}
-
-export interface ContractStateIndexing {}
-
-export interface ContractStateReady {
-  contract_identifier: string;
-  interface: StacksContractInterface;
-}
-
-export type ContractStateData = Record<
-  ContractState,
-  ContractStateIndexing | ContractStateReady
->;
 
   /**
    * Lorem ipsum
