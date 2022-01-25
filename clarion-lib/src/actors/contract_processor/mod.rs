@@ -8,7 +8,7 @@ use kompact::prelude::*;
 use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer};
 use rocksdb::{Options, DB};
-use crate::datastore::contracts::{db_key, DBKey, contract_db};
+use crate::datastore::contracts::{db_key, DBKey, contract_db_read, contract_db_write};
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -204,7 +204,7 @@ impl ContractProcessor {
 
         // Store artifacts
         {
-            let db = contract_db(&self.storage_driver, &self.contract_id);
+            let db = contract_db_write(&self.storage_driver, &self.contract_id);
             let full_analysis_bytes = serde_json::to_vec(&full_analysis).expect("Unable to serialize block");
             db.put(&self.db_key(DBKey::FullAnalysis), full_analysis_bytes).unwrap();
             // todo(ludo): finer granularity
@@ -328,7 +328,7 @@ impl Actor for ContractProcessor {
                 }
 
                 {
-                    let db = contract_db(&self.storage_driver, &self.contract_id);
+                    let db = contract_db_write(&self.storage_driver, &self.contract_id);
                     for change in changes.iter() {
                         match change {
                             Changes::UpdateDataVar(var, new_value, txid) => {

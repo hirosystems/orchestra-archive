@@ -21,11 +21,18 @@ pub fn contract_db_path(storage_driver: &StorageDriver, contract_id: &str) -> Pa
 }
 
 
-pub fn contract_db(storage_driver: &StorageDriver, contract_id: &str) -> DB {
+pub fn contract_db_read(storage_driver: &StorageDriver, contract_id: &str) -> DB {
     let working_dir = contract_db_path(storage_driver, contract_id); 
     let options = Options::default();
     DB::open_for_read_only(&options, working_dir, true).unwrap()
 }
+
+pub fn contract_db_write(storage_driver: &StorageDriver, contract_id: &str) -> DB {
+    let working_dir = contract_db_path(storage_driver, contract_id); 
+    let options = Options::default();
+    DB::open_default(working_dir).unwrap()
+}
+
 
 pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
     match key {

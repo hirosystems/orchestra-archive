@@ -360,9 +360,9 @@ mod test {
 
         {
             use rocksdb::{IteratorMode, Direction};
-            use crate::datastore::contracts::{DBKey, db_key, contract_db};
+            use crate::datastore::contracts::{DBKey, db_key, contract_db_read};
 
-            let db = contract_db(&storage_driver, &test_contract_id.to_string());
+            let db = contract_db_read(&storage_driver, &test_contract_id.to_string());
             
             let res = db.get(&db_key(DBKey::Map("my-map", "k1"), &test_contract_id.to_string())).unwrap().unwrap();
             assert_eq!(String::from_utf8(res).unwrap(), "v1".to_string());
