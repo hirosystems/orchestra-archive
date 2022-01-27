@@ -110,13 +110,13 @@ const CustomTablePagination = styled(TablePaginationUnstyled)(
   `,
 );
 
-const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, entries: Array<[string, string]> }) => {
+const NftTable = (props: { assetType: ClarityAbiType, tokens: Array<[string, string]> }) => {
   const [page, setPage] = React.useState(0);
   const rowsPerPage = 20;
 
   // Avoid a layout jump when reaching the last page with empty rows.
   const emptyRows =
-    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - props.entries.length) : 0;
+    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - props.tokens.length) : 0;
 
   const handleChangePage = (
     event: React.MouseEvent<HTMLButtonElement> | null,
@@ -125,52 +125,38 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
     setPage(newPage);
   };
 
-  let keyHeaders = [];
-  let rawEntries = props.entries;
+  let headers = [];
+  let rawEntries = props.tokens;
   let entries = [];
-  if (isClarityAbiTuple(props.keyType)) {
-    keyHeaders.push(...props.keyType.tuple.map((key) => key.name));
+  if (isClarityAbiTuple(props.assetType)) {
+    headers.push(...props.assetType.tuple.map((key) => key.name));
     for (let entry of rawEntries) {
       let key_values = JSON.parse(entry[0]);
-      entries.push(props.keyType.tuple.map((key) => key_values[key.name]));
+      entries.push(props.assetType.tuple.map((key) => key_values[key.name]));
     }
   } else {
-    keyHeaders.push(props.keyType.toString());
+    headers.push(props.assetType.toString());
     for (let entry of rawEntries) {
       entries.push([entry[0]]);
     }
   } 
 
-  let valueHeaders = [];
-  if (isClarityAbiTuple(props.valueType)) {
-    valueHeaders.push(...props.valueType.tuple.map((key) => key.name));
-    for (let i = 0; i < rawEntries.length; i++) {
-      let values = JSON.parse(rawEntries[i][1]);
-      entries[i].push(...props.valueType.tuple.map((key) => values[key.name]));
-    }
-  } else {
-    valueHeaders.push(props.valueType.toString());
-    for (let i = 0; i < rawEntries.length; i++) {
-      entries[i].push(rawEntries[i][1]);
-    }
+  for (let i = 0; i < rawEntries.length; i++) {
+    entries[i].push(rawEntries[i][1]);
   }
  
-  let columnsCount = keyHeaders.length + valueHeaders.length;
+  let columnsCount = headers.length + 1;
   return (
     <Root sx={{ minWidth: 700, width: 800, maxWidth: '100%' }}>
       <table>
         <thead>
           <tr>
             {
-              keyHeaders.map((header, i) => {
+              headers.map((header, i) => {
                 return <th style={{color: grey[900]}}>{header}</th>
               })
             }
-            {
-              valueHeaders.map((header, i) => {
-                return <th style={{color: 'rgb(9, 105, 218)'}} >{header}</th>
-              })
-            }
+            <th style={{color: 'rgb(9, 105, 218)'}} >Owner</th>
           </tr>
         </thead>
         <tbody>
@@ -195,7 +181,7 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
           <tr>
             <CustomTablePagination
               colSpan={columnsCount}
-              count={props.entries.length}
+              count={props.tokens.length}
               rowsPerPage={rowsPerPage}
               page={page}
               componentsProps={{
@@ -213,4 +199,4 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
   );
 }
 
-export { MapTable };
+export { NftTable };

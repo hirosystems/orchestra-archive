@@ -183,8 +183,42 @@ impl Actor for ProtocolObserver {
                 if field.is_none() {
                     for nft in interface.non_fungible_tokens.iter() {
                         if nft.name == request.field_name {
+                            let asset_id = format!("{}::{}", request.contract_identifier, nft.name);
+                            let db_key = db_key(DBKey::NFTScan(&asset_id), &request.contract_identifier);
+
+                            let iter = db.prefix_iterator(&db_key);
+                            let mut tokens = vec![];
+                            for (key, value) in iter {
+
+                                if key.starts_with(&db_key) {
+                                    let decoded_key = match Value::consensus_deserialize(&mut Cursor::new(&key[db_key.len()..])) {
+                                        Ok(value) => value,
+                                        Err(_) => Value::none(),
+                                    };
+                                    let owner = String::from_utf8(value.to_vec()).unwrap();
+
+                                    let asset = match decoded_key {
+                                        Value::Tuple(pairs) => {
+                                            let mut map = Map::new();
+                                            for (key, value) in pairs.data_map.into_iter() {
+                                                map.insert(key.to_string(), format!("{}", value).into());
+                                            }
+                                            json!(map).to_string()
+                                        }
+                                        _ => format!("{}", decoded_key)
+                                    };
+
+                                    tokens.push(((asset, owner), BlockIdentifier {
+                                        hash: "0".into(),
+                                        index: 0
+                                    }, TransactionIdentifier {
+                                        hash: "0".into()
+                                    }))
+                                }
+                            }
+
                             field = Some(FieldValues::Nft(NftValues {
-                                tokens: vec![],
+                                tokens,
                                 tokens_page_size: 0,
                                 tokens_page_index: 0,
                                 token_type: nft.type_f.clone(),
@@ -198,8 +232,28 @@ impl Actor for ProtocolObserver {
                 if field.is_none() {
                     for ft in interface.fungible_tokens.iter() {
                         if ft.name == request.field_name {
+                            let asset_id = format!("{}::{}", request.contract_identifier, ft.name);
+                            let db_key = db_key(DBKey::FTScan(&asset_id), &request.contract_identifier);
+
+                            let iter = db.prefix_iterator(&db_key);
+                            let mut balances = vec![];
+                            for (key, value) in iter {
+
+                                if key.starts_with(&db_key) {
+                                    let owner = String::from_utf8(key[db_key.len()..].to_vec()).unwrap();
+                                    let balance = String::from_utf8(value.to_vec()).unwrap();
+
+                                    balances.push(((owner, balance), BlockIdentifier {
+                                        hash: "0".into(),
+                                        index: 0
+                                    }, TransactionIdentifier {
+                                        hash: "0".into()
+                                    }))
+                                }
+                            }
+
                             field = Some(FieldValues::Ft(FtValues {
-                                balances: vec![],
+                                balances,
                                 balances_page_size: 0,
                                 balances_page_index: 0,
                                 events: vec![],

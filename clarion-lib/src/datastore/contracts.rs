@@ -11,7 +11,9 @@ pub enum DBKey <'a> {
     MapEntry(&'a str, &'a str),
     MapScan(&'a str),
     FT(&'a str, &'a str),
+    FTScan(&'a str),
     NFT(&'a str, &'a str),
+    NFTScan(&'a str),
 }
 
 pub fn contract_db_path(storage_driver: &StorageDriver, contract_id: &str) -> PathBuf {
@@ -49,7 +51,14 @@ pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
             prefix
         }
         DBKey::MapScan(map) => format!("map::{}::{}", contract_id, map).as_bytes().to_vec(),
-        DBKey::FT(ft, owner) => format!("ft::{}::owner::@{}", ft, owner).as_bytes().to_vec(),
-        DBKey::NFT(nft, owner) => format!("nft::{}::owner@{}", nft, owner).as_bytes().to_vec(),
+        DBKey::FT(asset_id, owner) => format!("ft::{}@{}", asset_id, owner).as_bytes().to_vec(),
+        DBKey::FTScan(asset_id) => format!("ft::{}@", asset_id).as_bytes().to_vec(),
+        DBKey::NFT(asset_id, key) => {
+            let mut prefix = format!("nft::{}::id@", asset_id).as_bytes().to_vec();
+            let mut entry = hex_bytes(key).unwrap();
+            prefix.append(&mut entry);
+            prefix
+        }
+        DBKey::NFTScan(asset_id) => format!("nft::{}::id@", asset_id).as_bytes().to_vec(),
     }
 }

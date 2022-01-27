@@ -15,7 +15,7 @@ use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self
 use clarion_lib::actors::{self};
 use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
 use clarion_lib::clarinet_lib::types::{StacksTransactionReceipt, BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata, StacksTransactionData, StacksTransactionMetadata, StacksTransactionKind, StacksContractDeploymentData};
-use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData};
+use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData, FTMintEventData, FTTransferEventData, NFTMintEventData, NFTTransferEventData};
 use clarion_lib::types::{ProtocolObserverConfig, FieldValues, FieldValuesRequest, FieldValuesResponse, VarValues, Contract, ProtocolObserverId};
 
 use clarion_lib::datastore::StorageDriver;
@@ -573,7 +573,62 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                         inserted_value: "(tuple (value1 u4001) (value2 u4002) (value3 u4003))".into(),
                         hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000029046b657932010000000000000000000000000000002a".into(),
                         hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000fa10676616c7565320100000000000000000000000000000fa20676616c7565330100000000000000000000000000000fa3".into(),
-                    })
+                    }),
+                    StacksTransactionEvent::FTMintEvent(FTMintEventData {
+                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        amount: "15000".into(),
+                    }),
+                    StacksTransactionEvent::FTMintEvent(FTMintEventData {
+                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
+                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        amount: "40000".into(),
+                    }),
+                    StacksTransactionEvent::FTTransferEvent(FTTransferEventData {
+                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        amount: "4000".into(),
+                    }),
+                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "01000000000000000000000000000061a8".into(), // 25000
+                    }),
+                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
+                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "0100000000000000000000000000013880".into(), // u80000
+                    }),
+                    StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
+                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "0100000000000000000000000000001f40".into(), // u8000
+                    }),
+                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000001046e616d650d0000000a6c75646f7669632e6964".into(), // { id: u1, name: "ludovic.id" }
+                    }),
+                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
+                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // { id: u2, name: "ludovic.btc" }
+                    }),
+                    StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
+                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
+                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "".into(),
+                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // u8000
+                    }),
+
                 ],
             }
         }

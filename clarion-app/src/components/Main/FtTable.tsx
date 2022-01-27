@@ -110,13 +110,13 @@ const CustomTablePagination = styled(TablePaginationUnstyled)(
   `,
 );
 
-const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, entries: Array<[string, string]> }) => {
+const FtTable = (props: { balances: Array<[string, string]> }) => {
   const [page, setPage] = React.useState(0);
   const rowsPerPage = 20;
 
   // Avoid a layout jump when reaching the last page with empty rows.
   const emptyRows =
-    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - props.entries.length) : 0;
+    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - props.balances.length) : 0;
 
   const handleChangePage = (
     event: React.MouseEvent<HTMLButtonElement> | null,
@@ -125,77 +125,38 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
     setPage(newPage);
   };
 
-  let keyHeaders = [];
-  let rawEntries = props.entries;
-  let entries = [];
-  if (isClarityAbiTuple(props.keyType)) {
-    keyHeaders.push(...props.keyType.tuple.map((key) => key.name));
-    for (let entry of rawEntries) {
-      let key_values = JSON.parse(entry[0]);
-      entries.push(props.keyType.tuple.map((key) => key_values[key.name]));
-    }
-  } else {
-    keyHeaders.push(props.keyType.toString());
-    for (let entry of rawEntries) {
-      entries.push([entry[0]]);
-    }
-  } 
 
-  let valueHeaders = [];
-  if (isClarityAbiTuple(props.valueType)) {
-    valueHeaders.push(...props.valueType.tuple.map((key) => key.name));
-    for (let i = 0; i < rawEntries.length; i++) {
-      let values = JSON.parse(rawEntries[i][1]);
-      entries[i].push(...props.valueType.tuple.map((key) => values[key.name]));
-    }
-  } else {
-    valueHeaders.push(props.valueType.toString());
-    for (let i = 0; i < rawEntries.length; i++) {
-      entries[i].push(rawEntries[i][1]);
-    }
-  }
- 
-  let columnsCount = keyHeaders.length + valueHeaders.length;
   return (
     <Root sx={{ minWidth: 700, width: 800, maxWidth: '100%' }}>
       <table>
         <thead>
           <tr>
-            {
-              keyHeaders.map((header, i) => {
-                return <th style={{color: grey[900]}}>{header}</th>
-              })
-            }
-            {
-              valueHeaders.map((header, i) => {
-                return <th style={{color: 'rgb(9, 105, 218)'}} >{header}</th>
-              })
-            }
+            <th style={{color: grey[900]}}>Owner</th>
+            <th style={{color: 'rgb(9, 105, 218)'}}>Balance</th>
           </tr>
         </thead>
         <tbody>
           {(rowsPerPage > 0
-            ? entries.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            : entries
-          ).map((entry) => (
-            <tr key={entry[0]}>
-              {entry.map(value => (
-                <td>{value}</td>
-              ))}
+            ? props.balances.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            : props.balances
+          ).map((balance) => (
+            <tr key={balance[0]}>
+                <td>{balance[0]}</td>
+                <td>{balance[1]}</td>
             </tr>
           ))}
 
           {emptyRows > 0 && (
             <tr style={{ height: 41 * emptyRows }}>
-              <td colSpan={columnsCount} />
+              <td colSpan={2} />
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr>
             <CustomTablePagination
-              colSpan={columnsCount}
-              count={props.entries.length}
+              colSpan={2}
+              count={props.balances.length}
               rowsPerPage={rowsPerPage}
               page={page}
               componentsProps={{
@@ -213,4 +174,4 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
   );
 }
 
-export { MapTable };
+export { FtTable };

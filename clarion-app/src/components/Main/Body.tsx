@@ -3,9 +3,9 @@
 import { Text, Timeline, StyledOcticon, Link } from '@primer/react'
 import {FlameIcon } from '@primer/octicons-react'
 import styled from "styled-components"
-import { Title, Subtitle, Label } from '.';
+import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable } from '.';
 import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
-import { MapTable } from './MapTable';
+import {  } from './MapTable';
 
 export const Container = styled.div`
 `
@@ -24,7 +24,7 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
     let value = undefined;
     if ("Var" in props.field.field_values) {
         subtitle = `Data variable of type ${props.field.field_values.Var.value_type}`;
-        value = <Label name={props.field.field_values.Var.value}/>;
+        value = <ValueLabel name={props.field.field_values.Var.value}/>;
     } else if ("Map" in props.field.field_values) {
         let entriesCount = props.field.field_values.Map.entries.length;
         let formattedCount = entriesCount === 0 ? "empty" : `${entriesCount} entries`;
@@ -35,9 +35,27 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         }
         value = <MapTable keyType={props.field.field_values.Map.key_type} valueType={props.field.field_values.Map.value_type} entries={entries}/>
     } else if ("Nft" in props.field.field_values) {
-        subtitle = `Non Fungible Token map tracking assets of type ${props.field.field_values.Nft.token_type}`;
+        let tokensCount = props.field.field_values.Nft.tokens.length;
+        let formattedCount = tokensCount === 0 ? "empty" : `${tokensCount} tokens minted`;
+        subtitle = `Non fungible token map: ${formattedCount}`;
+
+        let tokens = [];
+        for (let entry of props.field.field_values.Nft.tokens) {
+            tokens.push(entry[0]);
+        }
+        value = <NftTable assetType={props.field.field_values.Nft.token_type} tokens={tokens}/>
+
+
+
     } else if ("Ft" in props.field.field_values) {
-        subtitle = "Fungible token";
+        let balancesCount = props.field.field_values.Ft.balances.length;
+        let formattedCount = balancesCount === 0 ? "empty" : `${balancesCount} holders`;
+        subtitle = `Fungible token map: ${formattedCount}`;
+        let balances = [];
+        for (let entry of props.field.field_values.Ft.balances) {
+            balances.push(entry[0]);
+        }
+        value = <FtTable balances={balances}/>
     }  
 
     return (

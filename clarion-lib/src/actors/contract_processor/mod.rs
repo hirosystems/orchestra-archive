@@ -300,7 +300,7 @@ impl Actor for ContractProcessor {
                             }
                             StacksTransactionEvent::NFTMintEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
-                                    changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
+                                    changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
                                 }
                             }
                             StacksTransactionEvent::NFTBurnEvent(event) => {
@@ -310,8 +310,8 @@ impl Actor for ContractProcessor {
                             }
                             StacksTransactionEvent::NFTTransferEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
-                                    changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.asset_identifier, &event.sender), &tx.transaction_identifier.hash));
-                                    changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
+                                    changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.sender), &tx.transaction_identifier.hash));
+                                    changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
                                 }                        
                             }
                             StacksTransactionEvent::SmartContractEvent(event) => {

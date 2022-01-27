@@ -109,7 +109,7 @@ export interface NftValuesData {
 }
 
 export interface FtValuesData {
-  balances: Array<[[string, number], BlockIdentifier, TransactionIdentifier]>;
+  balances: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   balances_page_size: number;
   balances_page_index: number;
   events: Array<number>;

@@ -166,7 +166,7 @@ pub struct NftValues {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct FtValues {
-    pub balances: Vec<((String, u128), BlockIdentifier, TransactionIdentifier)>,
+    pub balances: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
     pub balances_page_size: u16,
     pub balances_page_index: u64,
     // pub total_supply: Option<String>, ;; TODO: not present in ContractInterface :/

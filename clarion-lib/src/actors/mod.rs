@@ -324,28 +324,32 @@ mod test {
                 NFTMintEventData {
                     asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
-                    asset_identifier: "A".into(),
+                    asset_identifier: "".into(),
+                    hex_asset_identifier: "A".into(),
                 }
             ),
             StacksTransactionEvent::NFTMintEvent(
                 NFTMintEventData {
                     asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
-                    asset_identifier: "B".into(),
+                    asset_identifier: "".into(),
+                    hex_asset_identifier: "B".into(),
                 }
             ),
             StacksTransactionEvent::NFTMintEvent(
                 NFTMintEventData {
                     asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
-                    asset_identifier: "C".into(),
+                    asset_identifier: "".into(),
+                    hex_asset_identifier: "C".into(),
                 }
             ),
             StacksTransactionEvent::NFTBurnEvent(
                 NFTBurnEventData {
                     asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
-                    asset_identifier: "B".into(),
+                    asset_identifier: "".into(),
+                    hex_asset_identifier: "B".into(),
                 }
             ),
             StacksTransactionEvent::NFTTransferEvent(
@@ -353,7 +357,8 @@ mod test {
                     asset_class_identifier: format!("{}::my-nft", test_contract_id),
                     sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                     recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
-                    asset_identifier: "A".into(),
+                    asset_identifier: "".into(),
+                    hex_asset_identifier: "A".into(),
                 }
             ),
         ]);
