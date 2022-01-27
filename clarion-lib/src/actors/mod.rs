@@ -232,45 +232,55 @@ mod test {
         transaction.metadata.receipt.events.append(&mut vec![
             StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
                 var: "my-var".into(),
-                new_value: "1".into(),
+                new_value: "".into(),
+                hex_new_value: "1".into(),
                 contract_identifier: test_contract_id.to_string()
             }),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
                     map: "my-map".into(),
-                    inserted_key: "k1".into(),
-                    inserted_value: "v1".into(),
+                    inserted_key: "".into(),
+                    hex_inserted_key: "k1".into(),
+                    inserted_value: "".into(),
+                    hex_inserted_value: "v1".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
                     map: "my-map".into(),
-                    inserted_key: "k2".into(),
-                    inserted_value: "v2".into(),
+                    inserted_key: "".into(),
+                    hex_inserted_key: "k2".into(),
+                    inserted_value: "".into(),
+                    hex_inserted_value: "v2".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
             StacksTransactionEvent::DataMapInsertEvent(
                 DataMapInsertEventData {
                     map: "my-map".into(),
-                    inserted_key: "k3".into(),
-                    inserted_value: "v3".into(),
+                    inserted_key: "".into(),
+                    hex_inserted_key: "k3".into(),
+                    inserted_value: "".into(),
+                    hex_inserted_value: "v3".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
             StacksTransactionEvent::DataMapUpdateEvent(
                 DataMapUpdateEventData {
                     map: "my-map".into(),
-                    key: "k2".into(),
-                    new_value: "v4".into(),
+                    key: "".into(),
+                    hex_key: "k2".into(),
+                    new_value: "".into(),
+                    hex_new_value: "v4".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
             StacksTransactionEvent::DataMapDeleteEvent(
                 DataMapDeleteEventData {
                     map: "my-map".into(),
-                    deleted_key: "k3".into(),
+                    deleted_key: "".into(),
+                    hex_deleted_key: "k3".into(),
                     contract_identifier: test_contract_id.to_string()
                 }
             ),
@@ -362,6 +372,15 @@ mod test {
         tx.send(ClarionSupervisorMessage::Exit).unwrap();
 
         let _res = handle.join().unwrap();
+        
+
+        {
+            use crate::datastore::contracts::{DBKey, db_key, contract_db_write};
+
+            let db = contract_db_write(&storage_driver, &test_contract_id.to_string());
+            let other_contract_id = "S1G2081040G2081040G2081040G208105NK8P91.test";
+            db.put(&db_key(DBKey::MapEntry("my-map", "k1"), &other_contract_id.to_string()), "junk".as_bytes()).unwrap();
+        }
 
         {
             use rocksdb::{IteratorMode, Direction};
@@ -369,10 +388,10 @@ mod test {
 
             let db = contract_db_read(&storage_driver, &test_contract_id.to_string());
             
-            let res = db.get(&db_key(DBKey::Map("my-map", "k1"), &test_contract_id.to_string())).unwrap().unwrap();
+            let res = db.get(&db_key(DBKey::MapEntry("my-map", "k1"), &test_contract_id.to_string())).unwrap().unwrap();
             assert_eq!(String::from_utf8(res).unwrap(), "v1".to_string());
 
-            let res = db.get(&db_key(DBKey::Map("my-map", "k2"), &test_contract_id.to_string())).unwrap().unwrap();
+            let res = db.get(&db_key(DBKey::MapEntry("my-map", "k2"), &test_contract_id.to_string())).unwrap().unwrap();
             assert_eq!(String::from_utf8(res).unwrap(), "v4".to_string());
             
             let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
@@ -385,15 +404,15 @@ mod test {
             for (key, value) in iter {
                 println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
             }
-            iter = db.iterator(IteratorMode::From(b"my-var", Direction::Forward)); // From a key in Direction::{forward,reverse}
+            iter = db.iterator(IteratorMode::From(b"S1G2081040G2081040G2081040G208105NK8PE5.test::var", Direction::Forward)); // From a key in Direction::{forward,reverse}
             println!("3");
             for (key, value) in iter {
                 println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());
             }
         
             // You can seek with an existing Iterator instance, too
-            iter = db.iterator(IteratorMode::Start);
-            iter.set_mode(IteratorMode::From(b"S1G2081040G2081040G2081040G208105NK8PE5.test::var", Direction::Forward));
+            iter = db.prefix_iterator(b"map::S1G2081040G2081040G2081040G208105NK8PE5.test::my-map::entry(");
+            // iter.set_mode(IteratorMode::From(b"S1G2081040G2081040G2081040G208105NK8PE5.test::var", Direction::Forward));
             println!("4");
             for (key, value) in iter {
                 println!("Saw {:?}", String::from_utf8(key.to_vec()).unwrap());

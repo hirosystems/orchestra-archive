@@ -1,6 +1,7 @@
 use crate::types::ProtocolObserverConfig;
 use clarinet_lib::clarity_repl::clarity::types::{StandardPrincipalData, QualifiedContractIdentifier};
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::build_contract_interface;
+use clarinet_lib::clarity_repl::clarity::util::hash::hex_bytes;
 use clarinet_lib::clarity_repl::repl::settings::InitialContract;
 use clarinet_lib::clarity_repl::repl::{ClarityInterpreter, Session, SessionSettings};
 use clarinet_lib::types::{StacksTransactionData, TransactionIdentifier};
@@ -257,22 +258,22 @@ impl Actor for ContractProcessor {
                         match event {
                             StacksTransactionEvent::DataVarSetEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
-                                    changes.push(Changes::UpdateDataVar(&event.var, &event.new_value, &tx.transaction_identifier.hash))
+                                    changes.push(Changes::UpdateDataVar(&event.var, &event.hex_new_value, &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapInsertEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
-                                    changes.push(Changes::InsertDataMapEntry(&event.map, (&event.inserted_key, &event.inserted_value), &tx.transaction_identifier.hash))
+                                    changes.push(Changes::InsertDataMapEntry(&event.map, (&event.hex_inserted_key, &event.hex_inserted_value), &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapUpdateEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
-                                    changes.push(Changes::UpdateDataMapEntry(&event.map, (&event.key, &event.new_value), &tx.transaction_identifier.hash))
+                                    changes.push(Changes::UpdateDataMapEntry(&event.map, (&event.hex_key, &event.hex_new_value), &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapDeleteEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
-                                    changes.push(Changes::DeleteDataMapEntry(&event.map, &event.deleted_key, &tx.transaction_identifier.hash))
+                                    changes.push(Changes::DeleteDataMapEntry(&event.map, &event.hex_deleted_key, &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::FTMintEvent(event) => {
@@ -339,16 +340,16 @@ impl Actor for ContractProcessor {
                     for change in changes.iter() {
                         match change {
                             Changes::UpdateDataVar(var, new_value, txid) => {
-                                db.put(&self.db_key(DBKey::Var(var)), new_value).expect("Unable to write");
+                                db.put(&self.db_key(DBKey::Var(var)), hex_bytes(new_value).unwrap()).expect("Unable to write");
                             },
                             Changes::InsertDataMapEntry(map, (new_key, new_value), txid) => {
-                                db.put(&self.db_key(DBKey::Map(map, new_key)), new_value).expect("Unable to write");
+                                db.put(&self.db_key(DBKey::MapEntry(map, new_key)), hex_bytes(new_value).unwrap()).expect("Unable to write");
                             },
                             Changes::DeleteDataMapEntry(map, deleted_key, txid) => {
-                                db.delete(&self.db_key(DBKey::Map(map, deleted_key))).expect("Unable to write");
+                                db.delete(&self.db_key(DBKey::MapEntry(map, deleted_key))).expect("Unable to write");
                             },
                             Changes::UpdateDataMapEntry(map, (key, new_value), txid) => {
-                                db.put(&self.db_key(DBKey::Map(map, key)), new_value).expect("Unable to write");
+                                db.put(&self.db_key(DBKey::MapEntry(map, key)), hex_bytes(new_value).unwrap()).expect("Unable to write");
                             },
                             Changes::SendTokens(asset_id, (sender, value), txid) => {
                                 let balance = match db.get(&self.db_key(DBKey::FT(asset_id, sender))) {

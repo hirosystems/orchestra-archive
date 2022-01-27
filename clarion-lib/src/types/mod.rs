@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashSet, HashMap};
 use std::sync::mpsc::Sender;
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterfaceAtomType, ContractInterface};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
+use clarinet_lib::clarity_repl::clarity::util::bitcoin::blockdata::transaction::Transaction;
 use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -142,9 +143,9 @@ pub struct VarValues {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct MapValues {
-    pub pairs: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
-    pub pairs_page_size: u16,
-    pub pairs_page_index: u64,
+    pub entries: Vec<((String, String), BlockIdentifier, TransactionIdentifier)>,
+    pub entries_page_size: u16,
+    pub entries_page_index: u64,
     pub key_type: ContractInterfaceAtomType,
     pub value_type: ContractInterfaceAtomType,
     pub events: Vec<u8>,

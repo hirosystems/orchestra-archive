@@ -2,12 +2,14 @@ use std::path::PathBuf;
 
 use rocksdb::{DB, Options};
 use super::StorageDriver;
+use clarinet_lib::clarity_repl::clarity::util::hash::hex_bytes;
 
 pub enum DBKey <'a> {
     FullAnalysis,
     Interface,
     Var(&'a str),
-    Map(&'a str, &'a str),
+    MapEntry(&'a str, &'a str),
+    MapScan(&'a str),
     FT(&'a str, &'a str),
     NFT(&'a str, &'a str),
 }
@@ -39,9 +41,15 @@ pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
     match key {
         DBKey::FullAnalysis => format!("{}::@analysis", contract_id).as_bytes().to_vec(),
         DBKey::Interface => format!("{}::@interface", contract_id).as_bytes().to_vec(),
-        DBKey::Var(var) => format!("{}::{}", contract_id, var).as_bytes().to_vec(),
-        DBKey::Map(map, key) => format!("{}::{}::entry({})", contract_id, map, key).as_bytes().to_vec(),
-        DBKey::FT(ft, owner) => format!("{}::owner({})", ft, owner).as_bytes().to_vec(),
-        DBKey::NFT(nft, owner) => format!("{}::owner({})", nft, owner).as_bytes().to_vec(),
+        DBKey::Var(var) => format!("var::{}::{}", contract_id, var).as_bytes().to_vec(),
+        DBKey::MapEntry(map, key) => {
+            let mut prefix = format!("map::{}::{}@", contract_id, map).as_bytes().to_vec();
+            let mut entry = hex_bytes(key).unwrap();
+            prefix.append(&mut entry);
+            prefix
+        }
+        DBKey::MapScan(map) => format!("map::{}::{}", contract_id, map).as_bytes().to_vec(),
+        DBKey::FT(ft, owner) => format!("ft::{}::owner::@{}", ft, owner).as_bytes().to_vec(),
+        DBKey::NFT(nft, owner) => format!("nft::{}::owner@{}", nft, owner).as_bytes().to_vec(),
     }
 }
