@@ -1,5 +1,7 @@
 import '../App.css';
-import { ContractField, Contract, Section, Title } from '../components/Sidebar';
+import { ContractField, Contract, Section } from '../components/Sidebar';
+import { Body } from '../components/Main';
+
 import { Box } from '@primer/react'
 import { Heading, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
@@ -52,7 +54,7 @@ function StateExplorer() {
             )}
         </Box>
         <Box flexGrow={1} p={3}>
-            {activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : "Empty"}
+          <Body field={activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : undefined }/>
         </Box>
       </Box>
     </div>

@@ -3,7 +3,7 @@ import './App.css';
 import HiroIcon from './hiro.svg'
 import StateExplorer from './pages/StateExplorer'
 import {ThemeProvider, BaseStyles, Box, Text, UnderlineNav, StyledOcticon} from '@primer/react'
-import {VersionsIcon, DatabaseIcon, GearIcon, BroadcastIcon } from '@primer/octicons-react'
+import {VersionsIcon, DatabaseIcon, TerminalIcon, ZapIcon } from '@primer/octicons-react'
 import {NetworkingProvider} from './components/NetworkingProvider';
 import { Provider } from 'react-redux'
 import { rootStore } from './stores/root'
@@ -25,16 +25,16 @@ function App() {
                 <Text>State</Text>
               </UnderlineNav.Link>
               <UnderlineNav.Link href="#events" style={{ width: 112 }}>
-                <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={BroadcastIcon} />
+                <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={ZapIcon} />
                 <Text>Lambdas</Text>
               </UnderlineNav.Link>
               <UnderlineNav.Link href="#events" style={{ width: 124 }}>
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={DatabaseIcon} />
-                <Text>Collections</Text>
+                <Text>Feeds</Text>
               </UnderlineNav.Link>
               <UnderlineNav.Link href="#settings" style={{ width: 112 }}>
-                <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={GearIcon} />
-                <Text>Settings</Text>
+                <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={TerminalIcon} />
+                <Text>Extensions</Text>
               </UnderlineNav.Link>
             </UnderlineNav>
           </Box>

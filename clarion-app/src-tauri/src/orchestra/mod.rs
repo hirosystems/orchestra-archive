@@ -15,6 +15,7 @@ use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self
 use clarion_lib::actors::{self};
 use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
 use clarion_lib::clarinet_lib::types::{StacksTransactionReceipt, BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata, StacksTransactionData, StacksTransactionMetadata, StacksTransactionKind, StacksContractDeploymentData};
+use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData};
 use clarion_lib::types::{ProtocolObserverConfig, FieldValues, FieldValuesRequest, FieldValuesResponse, VarValues, Contract, ProtocolObserverId};
 
 use clarion_lib::datastore::StorageDriver;
@@ -482,55 +483,113 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
     let delay = time::Duration::from_millis(10000);
     thread::sleep(delay);
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
-        block_identifier: block_identifier(3),
-        parent_block_identifier: block_identifier(2),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: BitcoinBlockMetadata {}
-    }))).unwrap();
+    let counter_contract = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.counter";
+    let mut mutated_contracts_radius = HashSet::new();
+    mutated_contracts_radius.insert(counter_contract.into());
+    let mut transactions = vec![];
+    transactions.push(StacksTransactionData {
+        transaction_identifier: TransactionIdentifier { hash: "0".into() },
+        operations: vec![],
+        metadata: StacksTransactionMetadata {
+            success: true,
+            description: "".into(),
+            sponsor: None,
+            raw_tx: "".into(),
+            result: "(ok true)".into(),
+            sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+            fee: 1,
+            kind: StacksTransactionKind::ContractCall,
+            execution_cost: None,
+            receipt: StacksTransactionReceipt {
+                mutated_contracts_radius: mutated_contracts_radius,
+                mutated_assets_radius: HashSet::new(),
+                events: vec![
+                    StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
+                        contract_identifier: counter_contract.into(),
+                        var: "counter".into(),
+                        new_value: "".into(),
+                        hex_new_value: "0100000000000000000000000000000065".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        inserted_key: "".into(),
+                        inserted_value: "".into(),
+                        hex_inserted_key: "0100000000000000000000000000000001".into(),
+                        hex_inserted_value: "01000000000000000000000000000f4240".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        inserted_key: "".into(),
+                        inserted_value: "".into(),
+                        hex_inserted_key: "0100000000000000000000000000000002".into(),
+                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        inserted_key: "".into(),
+                        inserted_value: "".into(),
+                        hex_inserted_key: "0100000000000000000000000000000003".into(),
+                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        inserted_key: "".into(),
+                        inserted_value: "".into(),
+                        hex_inserted_key: "0100000000000000000000000000000004".into(),
+                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "multi-kv".into(),
+                        inserted_key: "(tuple (key1 u11) (key2 u12))".into(),
+                        inserted_value: "(tuple (value1 u1001) (value2 u1002) (value3 u1003))".into(),
+                        hex_inserted_key: "0c00000002046b657931010000000000000000000000000000000b046b657932010000000000000000000000000000000c".into(),
+                        hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000003e90676616c75653201000000000000000000000000000003ea0676616c75653301000000000000000000000000000003eb".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "multi-kv".into(),
+                        inserted_key: "(tuple (key1 u21) (key2 u22))".into(),
+                        inserted_value: "(tuple (value1 u2001) (value2 u2002) (value3 u2003))".into(),
+                        hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000015046b6579320100000000000000000000000000000016".into(),
+                        hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000007d10676616c75653201000000000000000000000000000007d20676616c75653301000000000000000000000000000007d3".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "multi-kv".into(),
+                        inserted_key: "(tuple (key1 u31) (key2 u32))".into(),
+                        inserted_value: "(tuple (value1 u3001) (value2 u3002) (value3 u3003))".into(),
+                        hex_inserted_key: "0c00000002046b657931010000000000000000000000000000001f046b6579320100000000000000000000000000000020".into(),
+                        hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000bb90676616c7565320100000000000000000000000000000bba0676616c7565330100000000000000000000000000000bbb".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "multi-kv".into(),
+                        inserted_key: "(tuple (key1 u41) (key2 u42))".into(),
+                        inserted_value: "(tuple (value1 u4001) (value2 u4002) (value3 u4003))".into(),
+                        hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000029046b657932010000000000000000000000000000002a".into(),
+                        hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000fa10676616c7565320100000000000000000000000000000fa20676616c7565330100000000000000000000000000000fa3".into(),
+                    })
+                ],
+            }
+        }
+    });
 
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
+    // DataVarSetEvent(DataVarSetEventData),
+    // DataMapInsertEvent(DataMapInsertEventData),
+    // DataMapUpdateEvent(DataMapUpdateEventData),
+    // DataMapDeleteEvent(DataMapDeleteEventData),
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
-        block_identifier: block_identifier(4),
-        parent_block_identifier: block_identifier(3),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: BitcoinBlockMetadata {}
-    }))).unwrap();
-
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
-
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
-        block_identifier: block_identifier(5),
-        parent_block_identifier: block_identifier(4),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: BitcoinBlockMetadata {}
-    }))).unwrap();
-
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
-
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
-        block_identifier: block_identifier(6),
-        parent_block_identifier: block_identifier(5),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: BitcoinBlockMetadata {}
-    }))).unwrap();
-
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
 
     supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
         block_identifier: block_identifier(1),
         parent_block_identifier: block_identifier(0),
         timestamp: 0,
-        transactions: vec![],
+        transactions: transactions,
         metadata: StacksBlockMetadata { 
             bitcoin_anchor_block_identifier: block_identifier(1), 
             pox_cycle_index: 0, 
@@ -604,7 +663,7 @@ pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Re
                     //     })
                     // };
                     let poll_state = PollState {
-                        protocol_id: 0,
+                        protocol_id: 1,
                         request: NetworkRequest::StateExplorerWatch(StateExplorerWatch {
                             stacks_block_identifier: BlockIdentifier { index: 1, hash: "1".to_string() },
                             bitcoin_block_identifier: BlockIdentifier { index: 1, hash: "1".to_string() },

@@ -7,7 +7,7 @@ export interface StateExplorerState {
   initialized: boolean,
   contractsIdentifiers: Array<string>;
   contracts: { [contractIdentifier: string]: StacksContractInterface };
-  fields: { [fieldIdentifier: string]: string };
+  fields: { [fieldIdentifier: string]: StateExplorerStateUpdateWatchData };
   wallets: Array<string>,
   activeContractIdentifier?: string;
   activeFieldIdentifier?: string;
@@ -51,17 +51,13 @@ export const stateExplorerSlice = createSlice({
       action: PayloadAction<StateExplorerStateUpdateWatchData>
     ) => {
       if ('Var' in action.payload.field_values) {
-        let payload = JSON.stringify(action.payload);
-        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = payload;
+        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = action.payload;
       } else if ('Map' in action.payload.field_values) {
-        let payload = JSON.stringify(action.payload);
-        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = payload;
+        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = action.payload;
       } else if ('Ft' in action.payload.field_values) {
-        let payload = JSON.stringify(action.payload);
-        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = payload;
+        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = action.payload;
       } else if ('Nft' in action.payload.field_values) {
-        let payload = JSON.stringify(action.payload);
-        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = payload;
+        state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = action.payload;
       } 
     },
   },

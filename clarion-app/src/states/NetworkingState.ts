@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../stores/root";
-import { Contract } from "../types";
+import { ClarityAbiType, Contract } from "../types";
 import { BitcoinBlockMetadata, Block, BlockIdentifier, TransactionIdentifier } from "../types/clarinet";
 
 export enum ActiveFeature {
@@ -81,18 +81,18 @@ export enum FieldValues {
 
 export interface VarValuesData {
   value: string;
-  value_type: any;
+  value_type: ClarityAbiType;
   events: Array<number>;
   events_page_size: number;
   events_page_index: number;
 }
 
 export interface MapValuesData {
-  pairs: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
-  pairs_page_size: number;
-  pairs_page_index: number;
-  key_type: any;
-  value_type: any;
+  entries: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
+  entries_page_size: number;
+  entries_page_index: number;
+  key_type: ClarityAbiType;
+  value_type: ClarityAbiType;
   events: Array<number>;
   events_page_size: number;
   events_page_index: number;
