@@ -3,7 +3,7 @@
 import { Text, Timeline, StyledOcticon, Link } from '@primer/react'
 import {FlameIcon } from '@primer/octicons-react'
 import styled from "styled-components"
-import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable } from '.';
+import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent } from '.';
 import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
 import {  } from './MapTable';
 
@@ -22,9 +22,14 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
 
     let subtitle = "";
     let value = undefined;
+    let events = [];
     if ("Var" in props.field.field_values) {
-        subtitle = `Data variable of type ${props.field.field_values.Var.value_type}`;
+        subtitle = `Data variable of type ${JSON.stringify(props.field.field_values.Var.value_type)}`;
         value = <ValueLabel name={props.field.field_values.Var.value}/>;
+        // Events
+        for (let event of props.field.field_values.Var.events) {
+            events.push((<VarEvent event={event} /> ))
+        }
     } else if ("Map" in props.field.field_values) {
         let entriesCount = props.field.field_values.Map.entries.length;
         let formattedCount = entriesCount === 0 ? "empty" : `${entriesCount} entries`;
@@ -34,19 +39,23 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
             entries.push(entry[0]);
         }
         value = <MapTable keyType={props.field.field_values.Map.key_type} valueType={props.field.field_values.Map.value_type} entries={entries}/>
+        // Events
+        for (let event of props.field.field_values.Map.events) {
+            events.push((<MapEvent event={event} /> ))
+        }
     } else if ("Nft" in props.field.field_values) {
         let tokensCount = props.field.field_values.Nft.tokens.length;
         let formattedCount = tokensCount === 0 ? "empty" : `${tokensCount} tokens minted`;
         subtitle = `Non fungible token map: ${formattedCount}`;
-
         let tokens = [];
         for (let entry of props.field.field_values.Nft.tokens) {
             tokens.push(entry[0]);
         }
         value = <NftTable assetType={props.field.field_values.Nft.token_type} tokens={tokens}/>
-
-
-
+        // Events
+        for (let event of props.field.field_values.Nft.events) {
+            events.push((<NftEvent event={event} /> ))
+        }        
     } else if ("Ft" in props.field.field_values) {
         let balancesCount = props.field.field_values.Ft.balances.length;
         let formattedCount = balancesCount === 0 ? "empty" : `${balancesCount} holders`;
@@ -56,6 +65,10 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
             balances.push(entry[0]);
         }
         value = <FtTable balances={balances}/>
+        // Events
+        for (let event of props.field.field_values.Ft.events) {
+            events.push((<FtEvent event={event} /> ))
+        }        
     }  
 
     return (
@@ -64,24 +77,9 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
             <Subtitle name={subtitle}/>
             {value}
 
-            <Label name="Last events"/>
+            <Label name="Latest events"/>
             <Timeline>
-                <Timeline.Item>
-                    <Timeline.Badge sx={{bg: 'danger.emphasis'}}>
-                        <StyledOcticon icon={FlameIcon} sx={{color: 'fg.onEmphasis'}} />
-                    </Timeline.Badge>
-                    <Timeline.Body>
-                    <Link href="#" sx={{fontWeight: 'bold',  color: 'fg.default', mr: 1}} muted>
-                    ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-                    </Link>
-                    burnt token <Link href="#" sx={{fontWeight: 'bold', color: 'fg.default', mr: 1}} muted>
-                        hot potato
-                    </Link>
-                    <Link href="#" color="fg.muted" muted>
-                        Just now
-                    </Link>
-                    </Timeline.Body>
-                </Timeline.Item>
+                {events}
             </Timeline>
         </Container>
     );

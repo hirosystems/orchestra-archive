@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../stores/root";
 import { ClarityAbiType, Contract } from "../types";
-import { BitcoinBlockMetadata, Block, BlockIdentifier, TransactionIdentifier } from "../types/clarinet";
+import { BitcoinBlockMetadata, Block, BlockIdentifier, StacksDataMapDeleteEventData, StacksDataMapInsertEventData, StacksDataMapUpdateEventData, StacksDataVarSetEventData, StacksNFTBurnEventData, StacksNFTMintEventData, StacksNFTTransferEventData, StacksFTBurnEventData, StacksFTMintEventData, StacksFTTransferEventData, StacksTransactionEventType, TransactionIdentifier } from "../types/clarinet";
 
 export enum ActiveFeature {
   StateExplorer,
@@ -79,10 +79,21 @@ export enum FieldValues {
   NFT = "Nft",
 }
 
+export type VarSetEvent = Record<StacksTransactionEventType.StacksDataVarSetEvent, StacksDataVarSetEventData>
+export type MapInsertEvent = Record<StacksTransactionEventType.StacksDataMapInsertEvent, StacksDataMapInsertEventData>
+export type MapUpdateEvent = Record<StacksTransactionEventType.StacksDataMapUpdateEvent, StacksDataMapUpdateEventData>
+export type MapDeleteEvent = Record<StacksTransactionEventType.StacksDataMapDeleteEvent, StacksDataMapDeleteEventData>
+export type NftMintEvent = Record<StacksTransactionEventType.StacksNFTMintEvent, StacksNFTMintEventData>
+export type NftTransferEvent = Record<StacksTransactionEventType.StacksNFTTransferEvent, StacksNFTTransferEventData>
+export type NftBurnEvent = Record<StacksTransactionEventType.StacksNFTBurnEvent, StacksNFTBurnEventData>
+export type FtMintEvent = Record<StacksTransactionEventType.StacksFTMintEvent, StacksFTMintEventData>
+export type FtTransferEvent = Record<StacksTransactionEventType.StacksFTTransferEvent, StacksFTTransferEventData>
+export type FtBurnEvent = Record<StacksTransactionEventType.StacksFTBurnEvent, StacksFTBurnEventData>
+
 export interface VarValuesData {
   value: string;
   value_type: ClarityAbiType;
-  events: Array<number>;
+  events: Array<VarSetEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -93,7 +104,7 @@ export interface MapValuesData {
   entries_page_index: number;
   key_type: ClarityAbiType;
   value_type: ClarityAbiType;
-  events: Array<number>;
+  events: Array<MapInsertEvent|MapUpdateEvent|MapDeleteEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -103,7 +114,7 @@ export interface NftValuesData {
   tokens_page_size: number;
   tokens_page_index: number;
   token_type: any;
-  events: Array<number>;
+  events: Array<NftMintEvent|NftTransferEvent|NftBurnEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -112,7 +123,7 @@ export interface FtValuesData {
   balances: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   balances_page_size: number;
   balances_page_index: number;
-  events: Array<number>;
+  events: Array<FtMintEvent|FtTransferEvent|FtBurnEvent>;
   events_page_size: number;
   events_page_index: number;
 }

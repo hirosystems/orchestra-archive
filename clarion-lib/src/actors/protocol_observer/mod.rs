@@ -11,6 +11,7 @@ use opentelemetry::trace::{Tracer, Span};
 use opentelemetry::global;
 use rocksdb::{DB, Options};
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, ContractInterfaceAtomType};
+use clarinet_lib::types::events::{StacksTransactionEvent};
 use crate::datastore::contracts::{db_key, DBKey, contract_db_read};
 use crate::datastore::StorageDriver;
 use crate::types::{Contract, ProtocolObserverConfig, FieldValuesRequest, FieldValuesResponse, FieldValues, VarValues, MapValues, NftValues, FtValues, ProtocolRegistration};
@@ -109,24 +110,42 @@ impl Actor for ProtocolObserver {
                             }
                             _ => Value::none(),
                         };
+
+                        let db_key = db_key(DBKey::VarEventScan(&var.name), &request.contract_identifier);
+                        let key = String::from_utf8(db_key.to_vec()).unwrap();
+                        warn!(self.ctx().log(), "Events key: {:?}", key);
+
+                        let iter = db.prefix_iterator(&db_key);
+                        let mut events = vec![];
+                        for (key, value) in iter {
+                            if key.starts_with(&db_key) {
+                                let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                    .expect("Unable to deserialize contract");
+                                events.push(event);    
+                            }
+                        }
+                        warn!(self.ctx().log(), "Events: {:?}", events);
+
                         field = Some(FieldValues::Var(VarValues {
                             value: format!("{}", value),
                             value_type: var.type_f.clone(),
-                            events: vec![],
+                            events,
                             events_page_index: 0,
                             events_page_size: 0,
                         }));
                     }
                 }
+
+
                 if field.is_none() {
                     for map in interface.maps.iter() {
                         if map.name == request.field_name {
-                            let db_key = db_key(DBKey::MapScan(&map.name), &request.contract_identifier);
-                            let iter = db.prefix_iterator(&db_key);
+                            let value_key = db_key(DBKey::MapScan(&map.name), &request.contract_identifier);
+                            let iter = db.prefix_iterator(&value_key);
                             let mut entries = vec![];
                             for (key, value) in iter {
-                                if key.starts_with(&db_key) {
-                                    let decoded_key = match Value::consensus_deserialize(&mut Cursor::new(&key[db_key.len()+1..])) {
+                                if key.starts_with(&value_key) {
+                                    let decoded_key = match Value::consensus_deserialize(&mut Cursor::new(&key[value_key.len()..])) {
                                         Ok(value) => value,
                                         Err(_) => Value::none(),
                                     };
@@ -167,13 +186,28 @@ impl Actor for ProtocolObserver {
                                 }
                             }
 
+                            let events_key = db_key(DBKey::MapEventScan(&map.name), &request.contract_identifier);
+                            let key = String::from_utf8(events_key.clone()).unwrap();
+                            warn!(self.ctx().log(), "Events key: {:?}", key);
+    
+                            let iter = db.prefix_iterator(&events_key);
+                            let mut events = vec![];
+                            for (key, value) in iter {
+                                if key.starts_with(&events_key) {
+                                    let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        .expect("Unable to deserialize contract");
+                                    events.push(event);    
+                                }
+                            }
+                            warn!(self.ctx().log(), "Events: {:?}", events);
+    
                             field = Some(FieldValues::Map(MapValues {
                                 entries,
                                 entries_page_size: 0,
                                 entries_page_index: 0,
                                 key_type: map.key.clone(),
                                 value_type: map.value.clone(),
-                                events: vec![],
+                                events,
                                 events_page_index: 0,
                                 events_page_size: 0,
                             }));
@@ -184,14 +218,14 @@ impl Actor for ProtocolObserver {
                     for nft in interface.non_fungible_tokens.iter() {
                         if nft.name == request.field_name {
                             let asset_id = format!("{}::{}", request.contract_identifier, nft.name);
-                            let db_key = db_key(DBKey::NFTScan(&asset_id), &request.contract_identifier);
+                            let values_key = db_key(DBKey::NFTScan(&asset_id), &request.contract_identifier);
 
-                            let iter = db.prefix_iterator(&db_key);
+                            let iter = db.prefix_iterator(&values_key);
                             let mut tokens = vec![];
                             for (key, value) in iter {
 
-                                if key.starts_with(&db_key) {
-                                    let decoded_key = match Value::consensus_deserialize(&mut Cursor::new(&key[db_key.len()..])) {
+                                if key.starts_with(&values_key) {
+                                    let decoded_key = match Value::consensus_deserialize(&mut Cursor::new(&key[values_key.len()..])) {
                                         Ok(value) => value,
                                         Err(_) => Value::none(),
                                     };
@@ -217,12 +251,27 @@ impl Actor for ProtocolObserver {
                                 }
                             }
 
+                            let events_key = db_key(DBKey::NFTEventScan(&asset_id), &request.contract_identifier);
+                            let key = String::from_utf8(events_key.clone()).unwrap();
+                            warn!(self.ctx().log(), "Events key: {:?}", key);
+    
+                            let iter = db.prefix_iterator(&events_key);
+                            let mut events = vec![];
+                            for (key, value) in iter {
+                                if key.starts_with(&events_key) {
+                                    let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        .expect("Unable to deserialize contract");
+                                    events.push(event);    
+                                }
+                            }
+                            warn!(self.ctx().log(), "Events: {:?}", events);
+    
                             field = Some(FieldValues::Nft(NftValues {
                                 tokens,
                                 tokens_page_size: 0,
                                 tokens_page_index: 0,
                                 token_type: nft.type_f.clone(),
-                                events: vec![],
+                                events,
                                 events_page_index: 0,
                                 events_page_size: 0,
                             }));
@@ -233,14 +282,14 @@ impl Actor for ProtocolObserver {
                     for ft in interface.fungible_tokens.iter() {
                         if ft.name == request.field_name {
                             let asset_id = format!("{}::{}", request.contract_identifier, ft.name);
-                            let db_key = db_key(DBKey::FTScan(&asset_id), &request.contract_identifier);
+                            let values_key = db_key(DBKey::FTScan(&asset_id), &request.contract_identifier);
 
-                            let iter = db.prefix_iterator(&db_key);
+                            let iter = db.prefix_iterator(&values_key);
                             let mut balances = vec![];
                             for (key, value) in iter {
 
-                                if key.starts_with(&db_key) {
-                                    let owner = String::from_utf8(key[db_key.len()..].to_vec()).unwrap();
+                                if key.starts_with(&values_key) {
+                                    let owner = String::from_utf8(key[values_key.len()..].to_vec()).unwrap();
                                     let balance = String::from_utf8(value.to_vec()).unwrap();
 
                                     balances.push(((owner, balance), BlockIdentifier {
@@ -251,12 +300,27 @@ impl Actor for ProtocolObserver {
                                     }))
                                 }
                             }
+                            let events_key = db_key(DBKey::FTEventScan(&asset_id), &request.contract_identifier);
+                            let key = String::from_utf8(events_key.clone()).unwrap();
+                            warn!(self.ctx().log(), "Events key: {:?}", key);
+    
+                            let iter = db.prefix_iterator(&events_key);
+                            let mut events = vec![];
+                            for (key, value) in iter {
+                                if key.starts_with(&events_key) {
+                                    let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        .expect("Unable to deserialize contract");
+                                    events.push(event);    
+                                }
+                            }
+                            warn!(self.ctx().log(), "Events: {:?}", events);
+
 
                             field = Some(FieldValues::Ft(FtValues {
                                 balances,
                                 balances_page_size: 0,
                                 balances_page_index: 0,
-                                events: vec![],
+                                events,
                                 events_page_index: 0,
                                 events_page_size: 0,
                             }));

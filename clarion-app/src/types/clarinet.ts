@@ -250,21 +250,21 @@
   }
   
   export enum StacksTransactionEventType {
-    StacksSTXTransferEvent = "StacksSTXTransferEvent",
-    StacksSTXMintEvent = "StacksSTXMintEvent",
-    StacksSTXLockEvent = "StacksSTXLockEvent",
-    StacksSTXBurnEvent = "StacksSTXBurnEvent",
-    StacksNFTTransferEvent = "StacksNFTTransferEvent",
-    StacksNFTMintEvent = "StacksNFTMintEvent",
-    StacksNFTBurnEvent = "StacksNFTBurnEvent",
-    StacksFTTransferEvent = "StacksFTTransferEvent",
-    StacksFTMintEvent = "StacksFTMintEvent",
-    StacksFTBurnEvent = "StacksFTBurnEvent",
-    StacksDataVarSetEvent = "StacksDataVarSetEvent",
-    StacksDataMapInsertEvent = "StacksDataMapInsertEvent",
-    StacksDataMapUpdateEvent = "StacksDataMapUpdateEvent",
-    StacksDataMapDeleteEvent = "StacksDataMapDeleteEvent",
-    StacksSmartContractEvent = "StacksSmartContractEvent",
+    StacksSTXTransferEvent = "STXTransferEvent",
+    StacksSTXMintEvent = "STXMintEvent",
+    StacksSTXLockEvent = "STXLockEvent",
+    StacksSTXBurnEvent = "STXBurnEvent",
+    StacksNFTTransferEvent = "NFTTransferEvent",
+    StacksNFTMintEvent = "NFTMintEvent",
+    StacksNFTBurnEvent = "NFTBurnEvent",
+    StacksFTTransferEvent = "FTTransferEvent",
+    StacksFTMintEvent = "FTMintEvent",
+    StacksFTBurnEvent = "FTBurnEvent",
+    StacksDataVarSetEvent = "DataVarSetEvent",
+    StacksDataMapInsertEvent = "DataMapInsertEvent",
+    StacksDataMapUpdateEvent = "DataMapUpdateEvent",
+    StacksDataMapDeleteEvent = "DataMapDeleteEvent",
+    StacksSmartContractEvent = "SmartContractEvent",
   }
   
   export interface StacksSTXTransferEventData {

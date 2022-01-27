@@ -4,7 +4,7 @@ use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::b
 use clarinet_lib::clarity_repl::clarity::util::hash::hex_bytes;
 use clarinet_lib::clarity_repl::repl::settings::InitialContract;
 use clarinet_lib::clarity_repl::repl::{ClarityInterpreter, Session, SessionSettings};
-use clarinet_lib::types::{StacksTransactionData, TransactionIdentifier};
+use clarinet_lib::types::{StacksTransactionData, TransactionIdentifier, BlockIdentifier};
 use clarinet_lib::types::events::{StacksTransactionEvent, SmartContractEventData};
 use kompact::prelude::*;
 use opentelemetry::global;
@@ -21,8 +21,8 @@ use super::block_store_manager::ContractInstanciation;
 #[derive(Clone, Debug)]
 pub enum ContractProcessorMessage {
     RebuildState,
-    ProcessTransactionsBatch(Vec<StacksTransactionData>),
-    RollbackTransactionsBatch(Vec<StacksTransactionData>),
+    ProcessTransactionsBatch(BlockIdentifier, Vec<StacksTransactionData>),
+    RollbackTransactionsBatch(BlockIdentifier, Vec<StacksTransactionData>),
     Exit,
 }
 
@@ -245,39 +245,50 @@ impl Actor for ContractProcessor {
 
         match msg {
             ContractProcessorMessage::RebuildState => {}
-            ContractProcessorMessage::ProcessTransactionsBatch(transactions) => {
+            ContractProcessorMessage::ProcessTransactionsBatch(block_identifier, transactions) => {
                 info!(
                     self.ctx.log(),
                     "ContractProcessor processed transaction batch"
                 );
                 let mut changes = vec![];
                 let mut custom_events = vec![];
-
+                let mut event_index = 0;
+                let db = contract_db_write(&self.storage_driver, &self.contract_id);
                 for tx in transactions.iter() {
-                    for event in tx.metadata.receipt.events.iter() {
-                        match event {
+                    for event_wrapper in tx.metadata.receipt.events.iter() {
+                        match event_wrapper {
                             StacksTransactionEvent::DataVarSetEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::VarEvent(&event.var, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::UpdateDataVar(&event.var, &event.hex_new_value, &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapInsertEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::MapEvent(&event.map, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::InsertDataMapEntry(&event.map, (&event.hex_inserted_key, &event.hex_inserted_value), &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapUpdateEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::MapEvent(&event.map, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::UpdateDataMapEntry(&event.map, (&event.hex_key, &event.hex_new_value), &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::DataMapDeleteEvent(event) => {
                                 if event.contract_identifier == self.contract_id {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::MapEvent(&event.map, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::DeleteDataMapEntry(&event.map, &event.hex_deleted_key, &tx.transaction_identifier.hash))
                                 }
                             },
                             StacksTransactionEvent::FTMintEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::FTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     let amount = u128::from_str_radix(&event.amount, 10)
                                         .expect("unable to parse amount");
                                     changes.push(Changes::ReceiveTokens(&event.asset_class_identifier, (&event.recipient, amount), &tx.transaction_identifier.hash))
@@ -285,6 +296,8 @@ impl Actor for ContractProcessor {
                             }
                             StacksTransactionEvent::FTBurnEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::FTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     let amount = u128::from_str_radix(&event.amount, 10)
                                         .expect("unable to parse amount");
                                     changes.push(Changes::SendTokens(&event.asset_class_identifier, (&event.sender, amount), &tx.transaction_identifier.hash))
@@ -292,6 +305,8 @@ impl Actor for ContractProcessor {
                             }
                             StacksTransactionEvent::FTTransferEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::FTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     let amount = u128::from_str_radix(&event.amount, 10)
                                         .expect("unable to parse amount");
                                     changes.push(Changes::SendTokens(&event.asset_class_identifier, (&event.sender, amount), &tx.transaction_identifier.hash));
@@ -300,16 +315,22 @@ impl Actor for ContractProcessor {
                             }
                             StacksTransactionEvent::NFTMintEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::NFTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
                                 }
                             }
                             StacksTransactionEvent::NFTBurnEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::NFTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.asset_identifier, &event.sender), &tx.transaction_identifier.hash))
                                 }
                             }
                             StacksTransactionEvent::NFTTransferEvent(event) => {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
+                                    event_index += 1;
+                                    db.put(&self.db_key(DBKey::NFTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
                                     changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.sender), &tx.transaction_identifier.hash));
                                     changes.push(Changes::ReceiveNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.recipient), &tx.transaction_identifier.hash))
                                 }                        
@@ -336,7 +357,6 @@ impl Actor for ContractProcessor {
                 }
 
                 {
-                    let db = contract_db_write(&self.storage_driver, &self.contract_id);
                     for change in changes.iter() {
                         match change {
                             Changes::UpdateDataVar(var, new_value, txid) => {
@@ -381,7 +401,7 @@ impl Actor for ContractProcessor {
                     ContractProcessorEvent::TransactionsBatchProcessed(self.contract_id.clone(), custom_events),
                 )
             }
-            ContractProcessorMessage::RollbackTransactionsBatch(transactions) => {}
+            ContractProcessorMessage::RollbackTransactionsBatch(block_identifier, transactions) => {}
             ContractProcessorMessage::Exit => {}
         };
         span.end();

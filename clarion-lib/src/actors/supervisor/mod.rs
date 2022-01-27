@@ -283,7 +283,7 @@ impl ClarionSupervisor {
                     None => unreachable!()
                 };
                 info!(self.log(), "Spawning batch");
-                worker.tell(ContractProcessorMessage::ProcessTransactionsBatch(batch));
+                worker.tell(ContractProcessorMessage::ProcessTransactionsBatch(block.block_identifier.clone(), batch));
             }
             // todo: keep track of trigger_history.    
         }

@@ -4,6 +4,7 @@ use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 use clarinet_lib::clarity_repl::clarity::util::bitcoin::blockdata::transaction::Transaction;
 use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier};
+use clarinet_lib::types::events::{StacksTransactionEvent};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ClarionPid(pub u64);
@@ -136,7 +137,7 @@ pub enum FieldValues {
 pub struct VarValues {
     pub value: String,
     pub value_type: ContractInterfaceAtomType,
-    pub events: Vec<u8>,
+    pub events: Vec<StacksTransactionEvent>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -148,7 +149,7 @@ pub struct MapValues {
     pub entries_page_index: u64,
     pub key_type: ContractInterfaceAtomType,
     pub value_type: ContractInterfaceAtomType,
-    pub events: Vec<u8>,
+    pub events: Vec<StacksTransactionEvent>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -159,7 +160,7 @@ pub struct NftValues {
     pub tokens_page_size: u16,
     pub tokens_page_index: u64,
     pub token_type: ContractInterfaceAtomType,
-    pub events: Vec<u8>,
+    pub events: Vec<StacksTransactionEvent>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -170,7 +171,7 @@ pub struct FtValues {
     pub balances_page_size: u16,
     pub balances_page_index: u64,
     // pub total_supply: Option<String>, ;; TODO: not present in ContractInterface :/
-    pub events: Vec<u8>,
+    pub events: Vec<StacksTransactionEvent>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }

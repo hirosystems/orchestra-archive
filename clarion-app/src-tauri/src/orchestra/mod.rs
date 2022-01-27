@@ -15,7 +15,7 @@ use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self
 use clarion_lib::actors::{self};
 use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
 use clarion_lib::clarinet_lib::types::{StacksTransactionReceipt, BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata, StacksTransactionData, StacksTransactionMetadata, StacksTransactionKind, StacksContractDeploymentData};
-use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData, FTMintEventData, FTTransferEventData, NFTMintEventData, NFTTransferEventData};
+use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData, FTMintEventData, FTTransferEventData, NFTMintEventData, NFTTransferEventData, FTBurnEventData, NFTBurnEventData};
 use clarion_lib::types::{ProtocolObserverConfig, FieldValues, FieldValuesRequest, FieldValuesResponse, VarValues, Contract, ProtocolObserverId};
 
 use clarion_lib::datastore::StorageDriver;
@@ -507,38 +507,60 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                     StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
                         contract_identifier: counter_contract.into(),
                         var: "counter".into(),
-                        new_value: "".into(),
+                        new_value: "u101".into(),
                         hex_new_value: "0100000000000000000000000000000065".into(),
                     }),
                     StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                         contract_identifier: counter_contract.into(),
                         map: "simple-kv".into(),
-                        inserted_key: "".into(),
-                        inserted_value: "".into(),
+                        inserted_key: "1".into(),
+                        inserted_value: "u1000000".into(),
                         hex_inserted_key: "0100000000000000000000000000000001".into(),
                         hex_inserted_value: "01000000000000000000000000000f4240".into(),
                     }),
                     StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                         contract_identifier: counter_contract.into(),
                         map: "simple-kv".into(),
-                        inserted_key: "".into(),
-                        inserted_value: "".into(),
-                        hex_inserted_key: "0100000000000000000000000000000002".into(),
-                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                        inserted_key: "3".into(),
+                        inserted_value: "u1000000".into(),
+                        hex_inserted_key: "0100000000000000000000000000000003".into(),
+                        hex_inserted_value: "01000000000000000000000000000f4240".into(),
                     }),
                     StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                         contract_identifier: counter_contract.into(),
                         map: "simple-kv".into(),
-                        inserted_key: "".into(),
-                        inserted_value: "".into(),
+                        inserted_key: "2".into(),
+                        inserted_value: "u2000000".into(),
+                        hex_inserted_key: "0100000000000000000000000000000002".into(),
+                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                    }),
+                    StacksTransactionEvent::DataMapUpdateEvent(DataMapUpdateEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        key: "3".into(),
+                        new_value: "u2000000".into(),
+                        hex_key: "0100000000000000000000000000000002".into(),
+                        hex_new_value: "01000000000000000000000000002e8480".into(),
+                    }),
+                    StacksTransactionEvent::DataMapDeleteEvent(DataMapDeleteEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        deleted_key: "2".into(),
+                        hex_deleted_key: "0100000000000000000000000000000002".into(),
+                    }),
+                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                        contract_identifier: counter_contract.into(),
+                        map: "simple-kv".into(),
+                        inserted_key: "3".into(),
+                        inserted_value: "3000000".into(),
                         hex_inserted_key: "0100000000000000000000000000000003".into(),
                         hex_inserted_value: "01000000000000000000000000001e8480".into(),
                     }),
                     StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                         contract_identifier: counter_contract.into(),
                         map: "simple-kv".into(),
-                        inserted_key: "".into(),
-                        inserted_value: "".into(),
+                        inserted_key: "4".into(),
+                        inserted_value: "4000000".into(),
                         hex_inserted_key: "0100000000000000000000000000000004".into(),
                         hex_inserted_value: "01000000000000000000000000001e8480".into(),
                     }),
@@ -590,42 +612,59 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                         sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
                         amount: "4000".into(),
                     }),
+                    StacksTransactionEvent::FTBurnEvent(FTBurnEventData {
+                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
+                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        amount: "1".into(),
+                    }),
                     StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                         asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
                         recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "u25000".into(),
                         hex_asset_identifier: "01000000000000000000000000000061a8".into(), // 25000
                     }),
                     StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                         asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
+                        recipient: "ST2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGN".into(),
+                        asset_identifier: "u25001".into(),
+                        hex_asset_identifier: "01000000000000000000000000000061a9".into(), // 25001
+                    }),
+                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
                         recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "u80000".into(),
                         hex_asset_identifier: "0100000000000000000000000000013880".into(), // u80000
                     }),
                     StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
                         asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
                         recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
                         sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "u8000".into(),
                         hex_asset_identifier: "0100000000000000000000000000001f40".into(), // u8000
+                    }),
+                    StacksTransactionEvent::NFTBurnEvent(NFTBurnEventData {
+                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
+                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                        asset_identifier: "u25001".into(),
+                        hex_asset_identifier: "01000000000000000000000000000061a9".into(),
                     }),
                     StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                         asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
                         recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "{ id: u1, name: 'ludovic.id' }".into(),
                         hex_asset_identifier: "0c000000020269640100000000000000000000000000000001046e616d650d0000000a6c75646f7669632e6964".into(), // { id: u1, name: "ludovic.id" }
                     }),
                     StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                         asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
                         recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
                         hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // { id: u2, name: "ludovic.btc" }
                     }),
                     StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
                         asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
                         recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
                         sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "".into(),
+                        asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
                         hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // u8000
                     }),
 
