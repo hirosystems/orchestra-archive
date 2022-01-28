@@ -7,6 +7,59 @@ import {VersionsIcon, DatabaseIcon, TerminalIcon, ZapIcon } from '@primer/octico
 import {NetworkingProvider} from './components/NetworkingProvider';
 import { Provider } from 'react-redux'
 import { rootStore } from './stores/root'
+import styled from "styled-components";
+
+export const Header = styled.div`
+    height: 128px;
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: 'flex-start';
+    cursor: default;
+    background-color: rgba(240, 240, 240, 0.7);
+`
+
+export const ProtocolOverview = styled.div`
+  width: 256px;
+  padding-top: 48px;
+  padding-left: 16px;
+  color: rgba(0, 0, 0, 0.7);
+`
+
+export const ChainOverview = styled.div`
+    min-width: 500px;
+    padding: 16px;
+    height: 128px;
+    flex-grow: 1;
+    cursor: default;
+`
+
+export const ChainBackground = styled.div`
+    background-color: rgba(0, 0, 0, 0.05);
+    height: 100%;
+    border-radius: 4px;
+`
+
+export const ProtocolLegend = styled.div`
+  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding-left: 6px;
+  padding-bottom: 0px;
+  margin-top: -12px;
+  letter-space: 0.03em;
+`
+
+export const ProtocolName = styled.div`
+    text-transform: uppercase;
+    text-align: left;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 6px;
+    padding-right: 12px;
+    padding-top: 0px;
+    letter-space: 0.03em;
+    cursor: default;
+`
 
 function App() {
 
@@ -15,11 +68,20 @@ function App() {
     <NetworkingProvider>
       <ThemeProvider>
         <BaseStyles>
-          <Box data-tauri-drag-region style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48 }}>
+          <Header data-tauri-drag-region>
+            <ProtocolOverview data-tauri-drag-region>
+              <ProtocolName data-tauri-drag-region>Counter</ProtocolName>
+              <ProtocolLegend data-tauri-drag-region>Protocol</ProtocolLegend>
+              {/* <HiroIcon/> */}
+            </ProtocolOverview>
+            <ChainOverview data-tauri-drag-region>
+              {/* <HiroIcon/> */}
+              <ChainBackground data-tauri-drag-region></ChainBackground>
+            </ChainOverview>
             {/* <HiroIcon/> */}
-          </Box>
+          </Header>
           <Box>
-            <UnderlineNav aria-label="Main">
+            {/* <UnderlineNav aria-label="Main">
               <UnderlineNav.Link href="#state" style={{ width: 112 }} selected>
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={VersionsIcon} />
                 <Text>State</Text>
@@ -36,7 +98,7 @@ function App() {
                 <StyledOcticon sx={{ marginRight: 2 }} size={16} icon={TerminalIcon} />
                 <Text>Extensions</Text>
               </UnderlineNav.Link>
-            </UnderlineNav>
+            </UnderlineNav> */}
           </Box>
           <StateExplorer></StateExplorer>
         </BaseStyles>

@@ -4,7 +4,7 @@ import styled from "styled-components"
 
 export const Container = styled.div`
     color: rgb(55, 53, 47);
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 600;
     letter-space: 0.03em;
     margin-top: 24px;

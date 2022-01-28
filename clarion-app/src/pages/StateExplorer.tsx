@@ -1,10 +1,7 @@
 import '../App.css';
 import { ContractField, Contract, Section } from '../components/Sidebar';
 import { Body } from '../components/Main';
-
 import { Box } from '@primer/react'
-import { Heading, Text } from '@primer/react'
-import { BlockHeader } from '../components/BlockHeader';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { selectFields, selectBookmarks, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
 import { initializeStateExplorer } from '../states/NetworkingState';
@@ -25,14 +22,12 @@ function StateExplorer() {
     let [contractIdentifier, fieldName] = bookmark.split("::");
     bookmarks.push(<ContractField key={0} fieldName={fieldName} contractIdentifier={contractIdentifier} />);
   }
-  
+
   const wallets = useRootSelector(selectWallets);
   const fields = useRootSelector(selectFields);
 
   return (
     <div>
-      {/* <Text content="State Explorer" size="large" weight="bold" /> */}
-      {/* <BlockHeader block={block} /> */}
       <Box display="flex">
         <Box p={3}>
               <Section name="Bookmarks"/>
