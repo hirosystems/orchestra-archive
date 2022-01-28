@@ -137,7 +137,7 @@ pub enum FieldValues {
 pub struct VarValues {
     pub value: String,
     pub value_type: ContractInterfaceAtomType,
-    pub events: Vec<StacksTransactionEvent>,
+    pub events: Vec<(StacksTransactionEvent, u64, u64)>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -149,7 +149,7 @@ pub struct MapValues {
     pub entries_page_index: u64,
     pub key_type: ContractInterfaceAtomType,
     pub value_type: ContractInterfaceAtomType,
-    pub events: Vec<StacksTransactionEvent>,
+    pub events: Vec<(StacksTransactionEvent, u64, u64)>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -160,7 +160,7 @@ pub struct NftValues {
     pub tokens_page_size: u16,
     pub tokens_page_index: u64,
     pub token_type: ContractInterfaceAtomType,
-    pub events: Vec<StacksTransactionEvent>,
+    pub events: Vec<(StacksTransactionEvent, u64, u64)>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }
@@ -171,7 +171,7 @@ pub struct FtValues {
     pub balances_page_size: u16,
     pub balances_page_index: u64,
     // pub total_supply: Option<String>, ;; TODO: not present in ContractInterface :/
-    pub events: Vec<StacksTransactionEvent>,
+    pub events: Vec<(StacksTransactionEvent, u64, u64)>,
     pub events_page_size: u16,
     pub events_page_index: u64,
 }

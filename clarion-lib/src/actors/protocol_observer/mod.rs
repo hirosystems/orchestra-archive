@@ -111,19 +111,26 @@ impl Actor for ProtocolObserver {
                             _ => Value::none(),
                         };
 
-                        let db_key = db_key(DBKey::VarEventScan(&var.name), &request.contract_identifier);
-                        let key = String::from_utf8(db_key.to_vec()).unwrap();
+                        let events_key = db_key(DBKey::VarEventScan(&var.name), &request.contract_identifier);
+                        let key = String::from_utf8(events_key.to_vec()).unwrap();
                         warn!(self.ctx().log(), "Events key: {:?}", key);
 
-                        let iter = db.prefix_iterator(&db_key);
+                        let iter = db.prefix_iterator(&events_key);
                         let mut events = vec![];
                         for (key, value) in iter {
-                            if key.starts_with(&db_key) {
+                            if key.starts_with(&events_key) {
+                                let remainder = String::from_utf8(key[events_key.len()..].to_vec()).unwrap();
+                                let order = remainder.split("/")
+                                    .collect::<Vec<&str>>();
+                                let block_index = u64::from_str_radix(order[0], 10).unwrap();
+                                let event_index = u64::from_str_radix(order[1], 10).unwrap();
+
                                 let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
                                     .expect("Unable to deserialize contract");
-                                events.push(event);    
+                                events.push((event, block_index, event_index));    
                             }
                         }
+                        events.sort_by(|(_, b1, b2), (_, a1, a2)| (a1*100+a2).cmp(&(b1*100+b2)));
                         warn!(self.ctx().log(), "Events: {:?}", events);
 
                         field = Some(FieldValues::Var(VarValues {
@@ -194,11 +201,18 @@ impl Actor for ProtocolObserver {
                             let mut events = vec![];
                             for (key, value) in iter {
                                 if key.starts_with(&events_key) {
+                                    let remainder = String::from_utf8(key[events_key.len()..].to_vec()).unwrap();
+                                    let order = remainder.split("/")
+                                        .collect::<Vec<&str>>();
+                                    let block_index = u64::from_str_radix(order[0], 10).unwrap();
+                                    let event_index = u64::from_str_radix(order[1], 10).unwrap();
+
                                     let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
                                         .expect("Unable to deserialize contract");
-                                    events.push(event);    
+                                    events.push((event, block_index, event_index));    
                                 }
                             }
+                            events.sort_by(|(_, b1, b2), (_, a1, a2)| (a1*100+a2).cmp(&(b1*100+b2)));
                             warn!(self.ctx().log(), "Events: {:?}", events);
     
                             field = Some(FieldValues::Map(MapValues {
@@ -259,11 +273,18 @@ impl Actor for ProtocolObserver {
                             let mut events = vec![];
                             for (key, value) in iter {
                                 if key.starts_with(&events_key) {
+                                    let remainder = String::from_utf8(key[events_key.len()..].to_vec()).unwrap();
+                                    let order = remainder.split("/")
+                                        .collect::<Vec<&str>>();
+                                    let block_index = u64::from_str_radix(order[0], 10).unwrap();
+                                    let event_index = u64::from_str_radix(order[1], 10).unwrap();
+
                                     let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
                                         .expect("Unable to deserialize contract");
-                                    events.push(event);    
+                                    events.push((event, block_index, event_index));    
                                 }
                             }
+                            events.sort_by(|(_, b1, b2), (_, a1, a2)| (a1*100+a2).cmp(&(b1*100+b2)));
                             warn!(self.ctx().log(), "Events: {:?}", events);
     
                             field = Some(FieldValues::Nft(NftValues {
@@ -308,11 +329,18 @@ impl Actor for ProtocolObserver {
                             let mut events = vec![];
                             for (key, value) in iter {
                                 if key.starts_with(&events_key) {
+                                    let remainder = String::from_utf8(key[events_key.len()..].to_vec()).unwrap();
+                                    let order = remainder.split("/")
+                                        .collect::<Vec<&str>>();
+                                    let block_index = u64::from_str_radix(order[0], 10).unwrap();
+                                    let event_index = u64::from_str_radix(order[1], 10).unwrap();
+
                                     let event = serde_json::from_slice::<StacksTransactionEvent>(&value)
                                         .expect("Unable to deserialize contract");
-                                    events.push(event);    
+                                    events.push((event, block_index, event_index));    
                                 }
                             }
+                            events.sort_by(|(_, b1, b2), (_, a1, a2)| (a1*100+a2).cmp(&(b1*100+b2)));
                             warn!(self.ctx().log(), "Events: {:?}", events);
 
 

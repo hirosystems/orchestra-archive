@@ -3,9 +3,8 @@ import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
-
     color: rgb(55, 53, 47);
-    font-size: 32px;
+    font-size: 40px;
     font-weight: 700;
     letter-space: 0.03em;
     margin-top: 0px;

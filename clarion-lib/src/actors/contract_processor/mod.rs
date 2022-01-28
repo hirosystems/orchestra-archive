@@ -324,7 +324,7 @@ impl Actor for ContractProcessor {
                                 if event.asset_class_identifier.starts_with(&self.contract_id) {
                                     event_index += 1;
                                     db.put(&self.db_key(DBKey::NFTEvent(&event.asset_class_identifier, block_identifier.index, event_index)), json!(event_wrapper).to_string().as_bytes()).expect("Unable to write");
-                                    changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.asset_identifier, &event.sender), &tx.transaction_identifier.hash))
+                                    changes.push(Changes::SendNFT(&event.asset_class_identifier, (&event.hex_asset_identifier, &event.sender), &tx.transaction_identifier.hash))
                                 }
                             }
                             StacksTransactionEvent::NFTTransferEvent(event) => {

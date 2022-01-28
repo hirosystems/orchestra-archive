@@ -93,7 +93,7 @@ export type FtBurnEvent = Record<StacksTransactionEventType.StacksFTBurnEvent, S
 export interface VarValuesData {
   value: string;
   value_type: ClarityAbiType;
-  events: Array<VarSetEvent>;
+  events: Array<[VarSetEvent, number, number]>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -104,7 +104,7 @@ export interface MapValuesData {
   entries_page_index: number;
   key_type: ClarityAbiType;
   value_type: ClarityAbiType;
-  events: Array<MapInsertEvent|MapUpdateEvent|MapDeleteEvent>;
+  events: Array<[MapInsertEvent|MapUpdateEvent|MapDeleteEvent, number, number]>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -114,7 +114,7 @@ export interface NftValuesData {
   tokens_page_size: number;
   tokens_page_index: number;
   token_type: any;
-  events: Array<NftMintEvent|NftTransferEvent|NftBurnEvent>;
+  events: Array<[NftMintEvent|NftTransferEvent|NftBurnEvent, number, number]>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -123,7 +123,7 @@ export interface FtValuesData {
   balances: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   balances_page_size: number;
   balances_page_index: number;
-  events: Array<FtMintEvent|FtTransferEvent|FtBurnEvent>;
+  events: Array<[FtMintEvent|FtTransferEvent|FtBurnEvent, number, number]>;
   events_page_size: number;
   events_page_index: number;
 }
