@@ -18,7 +18,7 @@ const VarEvent = (props: { event: VarSetEvent }) => {
             <Timeline.Badge sx={{bg: 'done.emphasis'}}>
                 <StyledOcticon icon={PencilIcon} sx={{color: 'fg.onEmphasis'}} />
             </Timeline.Badge>
-            <Timeline.Body>{props.event.DataVarSetEvent.new_value}</Timeline.Body>
+            <Timeline.Body>Value updated: {props.event.DataVarSetEvent.new_value}</Timeline.Body>
         </Timeline.Item>
     );
 };

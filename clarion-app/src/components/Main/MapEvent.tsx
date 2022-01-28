@@ -18,11 +18,12 @@ const MapEvent = (props: { event: MapUpdateEvent|MapInsertEvent|MapDeleteEvent }
     let label = '';
     if ('DataMapDeleteEvent' in props.event) {
         color = 'danger.emphasis';
-        label = `Deleted value ${props.event.DataMapDeleteEvent.deleted_key}`
+        label = `Entry keyed with ${props.event.DataMapDeleteEvent.deleted_key} deleted`
     } else if ('DataMapUpdateEvent' in props.event) {
-        label = `Key ${props.event.DataMapUpdateEvent.key} updated with value ${props.event.DataMapUpdateEvent.new_value}`
+        color = 'accent.emphasis';
+        label = `Entry keyed with ${props.event.DataMapUpdateEvent.key} updated with value ${props.event.DataMapUpdateEvent.new_value}`
     } else if ('DataMapInsertEvent' in props.event) {
-        label = `Key ${props.event.DataMapInsertEvent.inserted_key} updated with value ${props.event.DataMapInsertEvent.inserted_value}`
+        label = `Entry keyed with ${props.event.DataMapInsertEvent.inserted_key} inserted with value ${props.event.DataMapInsertEvent.inserted_value}`
     }
 
     return (

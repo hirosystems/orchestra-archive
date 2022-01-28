@@ -1,9 +1,9 @@
 
 
-import { Text, Timeline, StyledOcticon, Link } from '@primer/react'
+import { Text, Timeline, StyledOcticon, Link, Box } from '@primer/react'
 import {FlameIcon } from '@primer/octicons-react'
 import styled from "styled-components"
-import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent } from '.';
+import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
 import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
 import {  } from './MapTable';
 
@@ -71,12 +71,16 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         }        
     }  
 
+    let fieldIdentifier = `${props.field.contract_identifier}::${props.field.field_name}`
+
     return (
         <Container>
-            <Title name={title}/>
+            <Box display="flex" justifyContent="space-between">
+                <Title name={title}/>
+                <Controls fieldIdentifier={fieldIdentifier}/>
+            </Box>
             <Subtitle name={subtitle}/>
             {value}
-
             <Label name="Latest events"/>
             <Timeline>
                 {events}

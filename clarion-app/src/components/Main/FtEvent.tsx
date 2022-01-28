@@ -21,7 +21,7 @@ const FtEvent = (props: { event: FtMintEvent|FtTransferEvent|FtBurnEvent }) => {
         color = 'danger.emphasis';
         label = `${props.event.FTBurnEvent.amount} tokens were burnt by ${props.event.FTBurnEvent.sender}`
     } else if ('FTTransferEvent' in props.event) {
-        color = 'done.emphasis';
+        color = 'accent.emphasis';
         icon = PaperAirplaneIcon;
         label = `${props.event.FTTransferEvent.amount} tokens were transfered from ${props.event.FTTransferEvent.sender} to ${props.event.FTTransferEvent.recipient}`
     } else if ('FTMintEvent' in props.event) {

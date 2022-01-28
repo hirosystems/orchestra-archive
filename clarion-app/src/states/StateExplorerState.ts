@@ -6,6 +6,8 @@ import { ContractFieldTarget, StateExplorerStateUpdateWatchData, TargetType } fr
 export interface StateExplorerState {
   initialized: boolean,
   contractsIdentifiers: Array<string>;
+  bookmarks: { [fieldIdentifier: string]: boolean };
+  notifications: { [fieldIdentifier: string]: boolean };
   contracts: { [contractIdentifier: string]: StacksContractInterface };
   fields: { [fieldIdentifier: string]: StateExplorerStateUpdateWatchData };
   wallets: Array<string>,
@@ -18,6 +20,8 @@ const initialState: StateExplorerState = {
   initialized: false,
   contractsIdentifiers: [],
   wallets: [],
+  notifications: {},
+  bookmarks: {},
   contracts: {},
   fields: {},
   activeContractIdentifier: undefined,
@@ -60,16 +64,35 @@ export const stateExplorerSlice = createSlice({
         state.fields[`${action.payload.contract_identifier}::${action.payload.field_name}`] = action.payload;
       } 
     },
+    toggleBookmark: (
+      state: StateExplorerState,
+      action: PayloadAction<string>
+    ) => {
+      state.bookmarks[action.payload] = isEnabled(state.bookmarks, action.payload) ? false : true;
+    },
+    toggleNotification: (
+      state: StateExplorerState,
+      action: PayloadAction<string>
+    ) => {
+      state.notifications[action.payload] = !isEnabled(state.notifications, action.payload);
+    },
   },
 });
 
-export const { activateField, updateContracts, updateField } = stateExplorerSlice.actions;
+function isEnabled(map: { [fieldIdentifier: string]: boolean }, fieldIdentifier?: string): boolean {
+  return fieldIdentifier !== undefined && map[fieldIdentifier] !== undefined &&  map[fieldIdentifier] === true;
+}
+
+export const { activateField, updateContracts, updateField, toggleBookmark, toggleNotification } = stateExplorerSlice.actions;
 
 export const selectContracts = (state: RootState) =>
   state.stateExplorer.contracts;
 
 export const selectContractsIdentifiers = (state: RootState) =>
   state.stateExplorer.contractsIdentifiers;
+
+export const selectBookmarks = (state: RootState) =>
+  Object.entries(state.stateExplorer.bookmarks).filter(([k, v]) => v === true);
 
 export const selectWallets = (state: RootState) =>
   state.stateExplorer.wallets;
@@ -82,5 +105,11 @@ export const selectActiveContractIdentifier = (state: RootState) =>
 
 export const selectActiveFieldIdentifier = (state: RootState) =>
   state.stateExplorer.activeFieldIdentifier;
+
+export const isNotificationEnabled = (state: RootState) =>
+  isEnabled(state.stateExplorer.notifications, state.stateExplorer.activeFieldIdentifier);
+
+export const isBookmarkEnabled = (state: RootState) =>
+  isEnabled(state.stateExplorer.bookmarks, state.stateExplorer.activeFieldIdentifier);
 
 export default stateExplorerSlice.reducer;

@@ -10,5 +10,6 @@ import { VarEvent } from './VarEvent';
 import { MapEvent } from './MapEvent';
 import { NftEvent } from './NftEvent';
 import { FtEvent } from './FtEvent';
+import { Controls } from './Controls'; 
 
-export { Title, Subtitle, Body, Label, ValueLabel, MapTable, NftTable, FtTable, VarEvent, MapEvent, NftEvent, FtEvent };
+export { Title, Subtitle, Body, Label, ValueLabel, MapTable, NftTable, FtTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls };

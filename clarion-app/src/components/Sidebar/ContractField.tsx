@@ -46,7 +46,7 @@ const Tag = styled.div`
     display: inline;
 `
 
-const ContractField = (props: { fieldName: string, fieldType: string, contractIdentifier: string }) => {
+const ContractField = (props: { fieldName: string, fieldType?: string, contractIdentifier: string }) => {
     let dispatch = useRootDispatch();
     const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);
     let fieldIdentifier = `${props.contractIdentifier}::${props.fieldName}`;
@@ -61,7 +61,7 @@ const ContractField = (props: { fieldName: string, fieldType: string, contractId
     
     return (
         <Container isFieldActive={isFieldActive} onClick={handleClick}>
-            <Tag>{props.fieldType}</Tag>
+            {props.fieldType ? <Tag>{props.fieldType}</Tag> : ''}
             <Text> {props.fieldName}</Text>
         </Container>
     );

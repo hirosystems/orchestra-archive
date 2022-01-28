@@ -6,7 +6,7 @@ import { Box } from '@primer/react'
 import { Heading, Text } from '@primer/react'
 import { BlockHeader } from '../components/BlockHeader';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { selectFields, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
+import { selectFields, selectBookmarks, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
 import { initializeStateExplorer } from '../states/NetworkingState';
 import { Wallet } from '../components/Sidebar/Wallet';
 
@@ -18,6 +18,14 @@ function StateExplorer() {
 
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
   const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);
+  const activeBookmarks = useRootSelector(selectBookmarks);
+
+  let bookmarks = [];
+  for (let [bookmark, _] of activeBookmarks) {
+    let [contractIdentifier, fieldName] = bookmark.split("::");
+    bookmarks.push(<ContractField key={0} fieldName={fieldName} contractIdentifier={contractIdentifier} />);
+  }
+  
   const wallets = useRootSelector(selectWallets);
   const fields = useRootSelector(selectFields);
 
@@ -27,6 +35,8 @@ function StateExplorer() {
       {/* <BlockHeader block={block} /> */}
       <Box display="flex">
         <Box p={3}>
+              <Section name="Bookmarks"/>
+                {bookmarks}
               <Section name="Contracts"/>
               {/* <FilteredSearch>
                 <Dropdown>

@@ -3,6 +3,7 @@ import { MouseEvent } from 'react';
 import styled from "styled-components"
 import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
 import { selectContracts } from "../../states/StateExplorerState";
+import { StacksContractInterface } from '../../types';
 import { ContractField } from "./ContractField";
 
 export const Container = styled.div`
@@ -39,34 +40,34 @@ const Contract = (props: { contractIdentifier: string }) => {
 
     function handleClick(event: MouseEvent) {
         event.preventDefault();
-        alert(event.currentTarget.tagName); 
+        alert(event.currentTarget.tagName);
     }
 
     let index = 0;
     let cells = [];
     for (const v of contracts[props.contractIdentifier].variables) {
         cells.push(
-        <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={props.contractIdentifier} />
-    )
-    index += 1;
+            <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={props.contractIdentifier} />
+        )
+        index += 1;
     }
     for (const v of contracts[props.contractIdentifier].maps) {
         cells.push(
-        <ContractField key={index} fieldName={v.name} fieldType="map" contractIdentifier={props.contractIdentifier} />
-    )
-    index += 1;
+            <ContractField key={index} fieldName={v.name} fieldType="map" contractIdentifier={props.contractIdentifier} />
+        )
+        index += 1;
     }
     for (const v of contracts[props.contractIdentifier].fungible_tokens) {
         cells.push(
-        <ContractField key={index} fieldName={v.name} fieldType="ft" contractIdentifier={props.contractIdentifier} />
-    )
-    index += 1;
+            <ContractField key={index} fieldName={v.name} fieldType="ft" contractIdentifier={props.contractIdentifier} />
+        )
+        index += 1;
     }
     for (const v of contracts[props.contractIdentifier].non_fungible_tokens) {
         cells.push(
-        <ContractField key={index} fieldName={v.name} fieldType="nft" contractIdentifier={props.contractIdentifier} />
-    )
-    index += 1;
+            <ContractField key={index} fieldName={v.name} fieldType="nft" contractIdentifier={props.contractIdentifier} />
+        )
+        index += 1;
     }
 
     let contractName = `${props.contractIdentifier.split('.')[1]}.clar`;
