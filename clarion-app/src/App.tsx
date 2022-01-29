@@ -8,35 +8,28 @@ import {NetworkingProvider} from './components/NetworkingProvider';
 import { Provider } from 'react-redux'
 import { rootStore } from './stores/root'
 import styled from "styled-components";
+import { Chain } from './components/Chain';
 
 export const Header = styled.div`
-    height: 128px;
+    height: 92px;
     display: flex;
     flex-flow: row wrap;
-    justify-content: 'flex-start';
     cursor: default;
+    justify-content: space-between;
     background-color: rgba(240, 240, 240, 0.7);
 `
 
 export const ProtocolOverview = styled.div`
   width: 256px;
-  padding-top: 48px;
+  padding-top: 30px;
   padding-left: 16px;
   color: rgba(0, 0, 0, 0.7);
-`
+  -webkit-user-select: none;      
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  cursor: default;
 
-export const ChainOverview = styled.div`
-    min-width: 500px;
-    padding: 16px;
-    height: 128px;
-    flex-grow: 1;
-    cursor: default;
-`
-
-export const ChainBackground = styled.div`
-    background-color: rgba(0, 0, 0, 0.05);
-    height: 100%;
-    border-radius: 4px;
 `
 
 export const ProtocolLegend = styled.div`
@@ -45,7 +38,7 @@ export const ProtocolLegend = styled.div`
   font-weight: 600;
   padding-left: 6px;
   padding-bottom: 0px;
-  margin-top: -12px;
+  margin-top: -10px;
   letter-space: 0.03em;
 `
 
@@ -61,6 +54,7 @@ export const ProtocolName = styled.div`
     cursor: default;
 `
 
+
 function App() {
 
   return (
@@ -74,10 +68,7 @@ function App() {
               <ProtocolLegend data-tauri-drag-region>Protocol</ProtocolLegend>
               {/* <HiroIcon/> */}
             </ProtocolOverview>
-            <ChainOverview data-tauri-drag-region>
-              {/* <HiroIcon/> */}
-              <ChainBackground data-tauri-drag-region></ChainBackground>
-            </ChainOverview>
+            <Chain/>
             {/* <HiroIcon/> */}
           </Header>
           <Box>
