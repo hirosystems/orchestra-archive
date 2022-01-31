@@ -1,4 +1,5 @@
 pub mod contracts;
+pub mod blocks;
 
 use std::path::PathBuf;
 

@@ -5,6 +5,7 @@ use opentelemetry::global;
 use crate::datastore::StorageDriver;
 use rocksdb::{DB};
 use serde_json;
+use crate::datastore::blocks;
 
 #[derive(Clone, Debug)]
 pub enum BlockStoreManagerMessage {
@@ -42,53 +43,33 @@ impl BlockStoreManager {
     }
 
     pub fn store_bitcoin_block(&mut self, block: BitcoinBlockData) {
-        match self.storage_driver {
-            StorageDriver::Filesystem(ref config) => {
-                let block_bytes = serde_json::to_vec(&block).expect("Unable to serialize block");
-                let mut path = config.working_dir.clone();
-                path.push("bitcoin");
-                let db = DB::open_default(path).unwrap();
-                db.put(block.block_identifier.hash.as_bytes(), block_bytes).unwrap();
-                db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
-                db.put(vec![0], "hello world".as_bytes()).unwrap();
-            }
-        }
-    }
+        let block_bytes = serde_json::to_vec(&block).expect("Unable to serialize block");
+        let db = blocks::bitcoin_blocks_db_write(&self.storage_driver);
+        db.put(format!("hash:{}", block.block_identifier.hash).as_bytes(), block_bytes).unwrap();
+        db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
+        db.put("tip".as_bytes(), block.block_identifier.index.to_be_bytes()).unwrap();
+}
 
     pub fn store_stacks_block(&mut self, block: StacksBlockData) {
-        match self.storage_driver {
-            StorageDriver::Filesystem(ref config) => {
-                let block_bytes = serde_json::to_vec(&block).expect("Unable to serialize block");
-                let mut path = config.working_dir.clone();
-                path.push("stacks");
-                let db = DB::open_default(path).unwrap();
-
-                for tx in block.transactions.iter() {
-                    match tx.metadata.kind {
-                        StacksTransactionKind::ContractDeployment(ref data) => {
-                            let contract_instanciation = ContractInstanciation {
-                                block_identifier: block.block_identifier.clone(),
-                                tx_identifier: tx.transaction_identifier.clone(),
-                                code: data.code.clone()
-                            };
-                            let contract_instanciation_bytes = serde_json::to_vec(&contract_instanciation).expect("Unable to serialize block");
-                            db.put(data.contract_identifier.as_bytes(), contract_instanciation_bytes).unwrap();
-                        }
-                        _ => {}
+        let block_bytes = serde_json::to_vec(&block).expect("Unable to serialize block");
+        let db = blocks::stacks_blocks_db_write(&self.storage_driver);
+        for tx in block.transactions.iter() {
+            match tx.metadata.kind {
+                StacksTransactionKind::ContractDeployment(ref data) => {
+                    let contract_instanciation = ContractInstanciation {
+                        block_identifier: block.block_identifier.clone(),
+                        tx_identifier: tx.transaction_identifier.clone(),
+                        code: data.code.clone()
                     };
+                    let contract_instanciation_bytes = serde_json::to_vec(&contract_instanciation).expect("Unable to serialize block");
+                    db.put(data.contract_identifier.as_bytes(), contract_instanciation_bytes).unwrap();
                 }
-
-                db.put(block.block_identifier.hash.as_bytes(), block_bytes).unwrap();
-                db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
-
-                // Keep a pair: contract_id: block_hash.
-                // In order to ease future contract instanciation.
-                // Keep a version of the schema: b3k:01:{block_hash} -> block_data
-                // Keep an index of the block:   i3x:{block_height} -> identifier.hash
-                // Update tip:                   tip -> { block_hash, block_height }
-                // + Retrieve all the contract deployed in this block,
-            }
+                _ => {}
+            };
         }
+        db.put(format!("hash:{}", block.block_identifier.hash).as_bytes(), block_bytes).unwrap();
+        db.put(block.block_identifier.index.to_be_bytes(), block.block_identifier.hash.as_bytes()).unwrap();
+        db.put("tip".as_bytes(), block.block_identifier.index.to_be_bytes()).unwrap();
     }
 
     pub fn delete_bitcoin_blocks(&mut self, block_ids: Vec<BlockIdentifier>) {

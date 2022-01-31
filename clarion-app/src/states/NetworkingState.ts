@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../stores/root";
 import { ClarityAbiType, Contract } from "../types";
-import { BitcoinBlockMetadata, Block, BlockIdentifier, StacksDataMapDeleteEventData, StacksDataMapInsertEventData, StacksDataMapUpdateEventData, StacksDataVarSetEventData, StacksNFTBurnEventData, StacksNFTMintEventData, StacksNFTTransferEventData, StacksFTBurnEventData, StacksFTMintEventData, StacksFTTransferEventData, StacksTransactionEventType, TransactionIdentifier } from "../types/clarinet";
+import { BitcoinBlockMetadata, Block, BlockIdentifier, StacksDataMapDeleteEventData, StacksDataMapInsertEventData, StacksDataMapUpdateEventData, StacksDataVarSetEventData, StacksNFTBurnEventData, StacksNFTMintEventData, StacksNFTTransferEventData, StacksFTBurnEventData, StacksFTMintEventData, StacksFTTransferEventData, StacksTransactionEventType, TransactionIdentifier, StacksBlock, BitcoinBlock } from "../types/clarinet";
 
 export enum ActiveFeature {
   StateExplorer,
@@ -24,8 +24,8 @@ export type NftValues = Record<"Nft", NftValuesData>
 export type FtValues = Record<"Ft", FtValuesData>
 
 export interface StateExplorerStateUpdateWatchData {
-  stacks_chain_blocks: Array<Block>;
-  bitcoin_chain_blocks: Array<Block>
+  stacks_blocks: Array<StacksBlock>;
+  bitcoin_blocks: Array<BitcoinBlock>;
   contract_identifier: string;
   field_name: string;
   field_values: VarValues | MapValues | NftValues | FtValues;

@@ -12,7 +12,9 @@ use opentelemetry::global;
 use rocksdb::{DB, Options};
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, ContractInterfaceAtomType};
 use clarinet_lib::types::events::{StacksTransactionEvent};
+use clarinet_lib::types::{BitcoinBlockData, StacksBlockData};
 use crate::datastore::contracts::{db_key, DBKey, contract_db_read};
+use crate::datastore::blocks;
 use crate::datastore::StorageDriver;
 use crate::types::{Contract, ProtocolObserverConfig, FieldValuesRequest, FieldValuesResponse, FieldValues, VarValues, MapValues, NftValues, FtValues, ProtocolRegistration};
 use serde_json::map::Map;
@@ -343,7 +345,6 @@ impl Actor for ProtocolObserver {
                             events.sort_by(|(_, b1, b2), (_, a1, a2)| (a1*100+a2).cmp(&(b1*100+b2)));
                             warn!(self.ctx().log(), "Events: {:?}", events);
 
-
                             field = Some(FieldValues::Ft(FtValues {
                                 balances,
                                 balances_page_size: 0,
@@ -356,17 +357,34 @@ impl Actor for ProtocolObserver {
                     }    
                 }
 
-                if field.is_none() {
-                    field = Some(FieldValues::Var(VarValues {
-                        value: "201".to_string(),
-                        value_type: ContractInterfaceAtomType::uint128,
-                        events: vec![],
-                        events_page_size: 0,
-                        events_page_index: 0,
-                    }),);
+                // Get eventual latest blocks (bitcoin + stacks)
+                let stacks_db = blocks::stacks_blocks_db_read(&self.storage_driver);
+                let stacks_tip = u64::from_be_bytes(stacks_db.get("tip".as_bytes()).unwrap().unwrap().try_into().unwrap());
+                let mut stacks_blocks = vec![];
+                warn!(self.ctx().log(), "Will be looking for stacks blocks in range {:?}", request.stacks_block_identifier.index..stacks_tip);
+                for missing_block in request.stacks_block_identifier.index..stacks_tip {
+                    let hash = stacks_db.get(&missing_block.to_be_bytes()).unwrap().unwrap();
+                    let block_bytes = stacks_db.get(&format!("hash:{}", String::from_utf8(hash).unwrap())).unwrap().unwrap();
+                    let block = serde_json::from_slice::<StacksBlockData>(&block_bytes)
+                                        .expect("Unable to deserialize contract");
+                    stacks_blocks.push(block);
+                }
+                warn!(self.ctx().log(), "Found {:?}", stacks_blocks);
+
+                let bitcoin_db = blocks::bitcoin_blocks_db_read(&self.storage_driver);
+                let bitcoin_tip = u64::from_be_bytes(bitcoin_db.get("tip".as_bytes()).unwrap().unwrap().try_into().unwrap());
+                let mut bitcoin_blocks = vec![];
+                for missing_block in request.bitcoin_block_identifier.index..bitcoin_tip {
+                    let hash = stacks_db.get(&missing_block.to_be_bytes()).unwrap().unwrap();
+                    let block_bytes = stacks_db.get(&format!("hash:{}", String::from_utf8(hash).unwrap())).unwrap().unwrap();
+                    let block = serde_json::from_slice::<BitcoinBlockData>(&block_bytes)
+                                        .expect("Unable to deserialize contract");
+                    bitcoin_blocks.push(block);
                 }
 
                 let response = FieldValuesResponse {
+                    bitcoin_blocks,
+                    stacks_blocks,                
                     contract_identifier: request.contract_identifier.clone(),
                     field_name: request.field_name.clone(),
                     values: field.unwrap(),

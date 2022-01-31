@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterfaceAtomType, ContractInterface};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 use clarinet_lib::clarity_repl::clarity::util::bitcoin::blockdata::transaction::Transaction;
-use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier};
+use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier, BitcoinBlockData, StacksBlockData};
 use clarinet_lib::types::events::{StacksTransactionEvent};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -182,6 +182,8 @@ pub struct FieldValuesRequest {
     pub contract_identifier: String,
     pub field_name: String,
     pub protocol_id: u64,
+    pub bitcoin_block_identifier: BlockIdentifier,
+    pub stacks_block_identifier: BlockIdentifier,
 }
 
 #[derive(Clone, Debug)]
@@ -189,6 +191,8 @@ pub struct FieldValuesResponse {
     pub contract_identifier: String,
     pub field_name: String,
     pub values: FieldValues,
+    pub bitcoin_blocks: Vec<BitcoinBlockData>,
+    pub stacks_blocks: Vec<StacksBlockData>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

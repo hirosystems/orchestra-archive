@@ -1,9 +1,11 @@
 
 import styled from "styled-components";
-
+import { useRootSelector } from "../../hooks/useRootSelector";
+import { getBitcoinChainTip, getStacksChainTip } from "../../states/BlocksExplorerState";
+import { Block } from './Block';
 
 export const ChainOverview = styled.div`
-padding-top: 12px;
+padding-top: 18px;
 padding-bottom: 12px;
 padding-right: 12px;
 height: 100%;
@@ -11,19 +13,12 @@ cursor: default;
 `
 
 export const ChainBackground = styled.div`
-background-color: rgba(255, 255, 255, 0.75);
+background-color: rgba(190, 190, 190, 0.25);
 height: 100%;
 padding-right: 8px;
 border-radius: 4px;
 display: flex;
 flex-flow: row wrap;
-`
-
-export const Block = styled.div`
-width: 64px;
-height: 24px;
-border-radius: 4px;
-border: 1px dashed #D8D8D8;
 `
 
 export const Blocks = styled.div`
@@ -75,8 +70,20 @@ export const ChainPicker = styled.div`
     }
 `
 
-
 const Chain = () => {
+
+    const stacksChainTip = useRootSelector(getStacksChainTip);
+    let blocks = [];
+
+    let knownChainTipHeight = stacksChainTip ? stacksChainTip.metadata.pox_cycle_position : 0;
+    for (let i = 0; i < 10; i++) {
+        let isKnown = i <= knownChainTipHeight;
+        blocks.push(
+            <Block key={i} blockHeight={i} isKnown={isKnown}/>
+        )
+    }
+
+    let poxCycle = stacksChainTip ? stacksChainTip.metadata.pox_cycle_index : 0;
 
     return (
         <ChainOverview data-tauri-drag-region>
@@ -91,43 +98,13 @@ const Chain = () => {
                         </ChainLeftInfo>
                         <ChainCenterInfo></ChainCenterInfo>
                         <ChainRightInfo>
-                        <ChainPicker isFieldActive={true}>POX CYCLE #1</ChainPicker>
+                        <ChainPicker isFieldActive={true}>POX CYCLE #{poxCycle}</ChainPicker>
                         </ChainRightInfo>
                     </ChainTopControls>
-                <Blocks>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-                    <Block>
-
-                    </Block>
-
-                </Blocks>
-</ChainBar>
+                    <Blocks>
+                        {blocks}
+                    </Blocks>
+                </ChainBar>
             </ChainBackground>
         </ChainOverview>);
 };

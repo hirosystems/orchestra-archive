@@ -96,8 +96,8 @@ pub struct StateExplorerSyncUpdate {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct StateExplorerWatchUpdate {
-    stacks_chain_blocks: Vec<StacksBlockData>,
-    bitcoin_chain_blocks: Vec<BitcoinBlockData>, 
+    stacks_blocks: Vec<StacksBlockData>,
+    bitcoin_blocks: Vec<BitcoinBlockData>, 
     contract_identifier: String,
     field_name: String,
     field_values: FieldValues, 
@@ -208,12 +208,14 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                         tx,
                                         contract_identifier: field.contract_identifier.clone(),
                                         field_name: field.field_name.clone(),
+                                        stacks_block_identifier: watch_state.stacks_block_identifier.clone(),
+                                        bitcoin_block_identifier: watch_state.bitcoin_block_identifier.clone(),
                                     }));
                                     let response = rx.recv().unwrap();
 
                                     NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
-                                        stacks_chain_blocks: vec![],
-                                        bitcoin_chain_blocks: vec![],
+                                        stacks_blocks: vec![],
+                                        bitcoin_blocks: vec![],
                                         contract_identifier: response.contract_identifier.clone(),
                                         field_name: response.field_name.clone(),
                                         field_values: response.values.clone(),
@@ -431,12 +433,14 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                         tx,
                                         contract_identifier: field.contract_identifier.clone(),
                                         field_name: field.field_name.clone(),
+                                        stacks_block_identifier: watch_state.stacks_block_identifier.clone(),
+                                        bitcoin_block_identifier: watch_state.bitcoin_block_identifier.clone(),
                                     }));
                                     let response = rx.recv().unwrap();
 
                                     NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
-                                        stacks_chain_blocks: vec![],
-                                        bitcoin_chain_blocks: vec![],
+                                        stacks_blocks: response.stacks_blocks.clone(),
+                                        bitcoin_blocks: response.bitcoin_blocks.clone(),
                                         contract_identifier: response.contract_identifier.clone(),
                                         field_name: response.field_name.clone(),
                                         field_values: response.values.clone(),
@@ -678,9 +682,10 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
     // DataMapUpdateEvent(DataMapUpdateEventData),
     // DataMapDeleteEvent(DataMapDeleteEventData),
 
+    let mut block_index = 1;
 
     supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-        block_identifier: block_identifier(1),
+        block_identifier: block_identifier(block_index),
         parent_block_identifier: block_identifier(0),
         timestamp: 0,
         transactions: transactions,
@@ -688,41 +693,39 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
             bitcoin_anchor_block_identifier: block_identifier(1), 
             pox_cycle_index: 0, 
             pox_cycle_position: 0, 
-            pox_cycle_length: 0 
+            pox_cycle_length: 10 
         }
     }))).unwrap();
 
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
+    let mut block_cycle_position = 1;
+    let mut pox_cycle_index = 0;
+    loop {
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-        block_identifier: block_identifier(2),
-        parent_block_identifier: block_identifier(1),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: StacksBlockMetadata { 
-            bitcoin_anchor_block_identifier: block_identifier(1), 
-            pox_cycle_index: 0, 
-            pox_cycle_position: 0, 
-            pox_cycle_length: 0 
+        block_index += 1;
+
+        supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
+            block_identifier: block_identifier(block_index),
+            parent_block_identifier: block_identifier(block_index - 1),
+            timestamp: 0,
+            transactions: vec![],
+            metadata: StacksBlockMetadata { 
+                bitcoin_anchor_block_identifier: block_identifier(block_index), 
+                pox_cycle_index: pox_cycle_index, 
+                pox_cycle_position: block_cycle_position, 
+                pox_cycle_length: 10 
+            }
+        }))).unwrap();
+    
+        let delay = time::Duration::from_millis(10000);
+
+        thread::sleep(delay);
+
+        block_cycle_position += 1;
+        if block_cycle_position == 10 {
+            block_cycle_position = 0;
+            pox_cycle_index += 1;
         }
-    }))).unwrap();
-
-    let delay = time::Duration::from_millis(10000);
-    thread::sleep(delay);
-
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-        block_identifier: block_identifier(3),
-        parent_block_identifier: block_identifier(2),
-        timestamp: 0,
-        transactions: vec![],
-        metadata: StacksBlockMetadata { 
-            bitcoin_anchor_block_identifier: block_identifier(1), 
-            pox_cycle_index: 0, 
-            pox_cycle_position: 0, 
-            pox_cycle_length: 0 
-        }
-    }))).unwrap();
+    }
 }
 
 pub fn run_frontend(frontend_cmd_tx: Sender<FrontendCommand>, backend_cmd_rx: Receiver<BackendCommand>) {

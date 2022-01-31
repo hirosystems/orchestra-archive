@@ -1,11 +1,7 @@
-
-
-import { Text, Timeline, StyledOcticon, Link, Box } from '@primer/react'
-import {FlameIcon } from '@primer/octicons-react'
+import { Timeline, Box } from '@primer/react'
 import styled from "styled-components"
 import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
 import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
-import {  } from './MapTable';
 
 export const Container = styled.div`
 `

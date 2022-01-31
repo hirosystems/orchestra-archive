@@ -1,9 +1,10 @@
 import { useEffect, useCallback, createContext, ReactChild } from "react";
 import { updateContracts, updateField } from "../states/StateExplorerState";
 import { useInterval } from '../hooks';
-import { selectRequestQueue, StateExplorerStateUpdate, StateExplorerStateUpdateInit, StateExplorerStateUpdateInitData, StateExplorerStateUpdateWatchData, dequeueRequest, StateExplorerStateUpdateWatch } from '../states/NetworkingState';
+import { selectRequestQueue, StateExplorerStateUpdate, dequeueRequest } from '../states/NetworkingState';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { Contract } from "../types";
+import { appendBitcoinBlocks, appendStacksBlocks } from "../states/BlocksExplorerState";
 
 const WS_ADDRESS = "ws://127.0.0.1:2404";
 const WS_POLL_INTERVAL = 5000;
@@ -25,6 +26,7 @@ const NetworkingProvider = (props: ISocketProvider) => {
         if (requestQueue.nextRequest) {
             let req = JSON.stringify(requestQueue.nextRequest);
             ws.send(req);
+
             dispatch(dequeueRequest(requestQueue.nextRequest));
         }
     };
@@ -38,6 +40,8 @@ const NetworkingProvider = (props: ISocketProvider) => {
         } else if ('StateExplorerWatch' in data.update) {
             let payload = {...data.update.StateExplorerWatch};
             dispatch(updateField(payload));
+            dispatch(appendStacksBlocks(payload.stacks_blocks));
+            dispatch(appendBitcoinBlocks(payload.bitcoin_blocks));
         }
     }, [dispatch]);
 

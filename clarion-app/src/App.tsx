@@ -2,7 +2,7 @@ import React from 'react'
 import './App.css';
 import HiroIcon from './hiro.svg'
 import StateExplorer from './pages/StateExplorer'
-import {ThemeProvider, BaseStyles, Box, Text, UnderlineNav, StyledOcticon} from '@primer/react'
+import {ThemeProvider, BaseStyles, Box } from '@primer/react'
 import {VersionsIcon, DatabaseIcon, TerminalIcon, ZapIcon } from '@primer/octicons-react'
 import {NetworkingProvider} from './components/NetworkingProvider';
 import { Provider } from 'react-redux'
@@ -11,12 +11,13 @@ import styled from "styled-components";
 import { Chain } from './components/Chain';
 
 export const Header = styled.div`
-    height: 92px;
+    height: 100px;
     display: flex;
     flex-flow: row wrap;
     cursor: default;
-    justify-content: space-between;
-    background-color: rgba(240, 240, 240, 0.7);
+    justify-content: flex-start;
+    gap: 48px;
+    // background-color: rgba(240, 240, 240, 0.7);
 `
 
 export const ProtocolOverview = styled.div`
@@ -53,7 +54,6 @@ export const ProtocolName = styled.div`
     letter-space: 0.03em;
     cursor: default;
 `
-
 
 function App() {
 
