@@ -5,12 +5,13 @@ export const Container = styled.div`
 width: 64px;
 height: 24px;
 border-radius: 4px;
-border: 1px dashed #D8D8D8;
+border: 1px ${(props: { isKnown: boolean }) => props.isKnown ? "solid #AAAAAA" : "dashed #AAAAAA"};
 padding: 2px;
 `
 
 export const Inner = styled.div`
-background-color: ${(props: { isKnown: boolean }) => props.isKnown ? "#D8D8D8" : "clear"};
+background-color: ${(props: { isKnown: boolean }) => props.isKnown ? "#AAAAAA" : "#D8D8D8"};
+color: ${(props: { isKnown: boolean }) => props.isKnown ? "#FFFFFF" : "#AAAAAA"};
 border-radius: 2px;
 text-transform: uppercase;
 font-size: 10px;
@@ -30,7 +31,7 @@ display: flex;
 const Block = (props: { blockHeight: number, isKnown: boolean }) => {
 
     return (
-        <Container>
+        <Container isKnown={props.isKnown}>
             <Inner isKnown={props.isKnown}>
                 {props.blockHeight}
             </Inner>

@@ -13,7 +13,7 @@ cursor: default;
 `
 
 export const ChainBackground = styled.div`
-background-color: rgba(190, 190, 190, 0.25);
+background-color: rgb(247, 246, 243);
 height: 100%;
 padding-right: 8px;
 border-radius: 4px;
