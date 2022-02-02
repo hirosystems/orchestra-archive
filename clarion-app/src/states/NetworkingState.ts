@@ -9,9 +9,11 @@ export enum ActiveFeature {
 
 export type StateExplorerStateUpdateWatch = Record<"StateExplorerWatch", StateExplorerStateUpdateWatchData>
 export type StateExplorerStateUpdateInit = Record<"StateExplorerInitialization", StateExplorerStateUpdateInitData>
+export type BootNetwork = Record<"BootNetwork", BootNetworkData>
+
 
 export interface StateExplorerStateUpdate {
-  update: StateExplorerStateUpdateWatch | StateExplorerStateUpdateInit;
+  update: StateExplorerStateUpdateWatch | StateExplorerStateUpdateInit | BootNetwork;
 }
 
 export interface StateExplorerStateUpdateInitData {
@@ -31,8 +33,17 @@ export interface StateExplorerStateUpdateWatchData {
   field_values: VarValues | MapValues | NftValues | FtValues;
 }
 
+export interface BootNetworkData {
+  status: string;
+  bitcoin_chain_height: number,
+  stacks_chain_height: number,
+  protocol_deployed: boolean,
+  contracts: Array<Contract>;
+}
+
 export enum StateExplorerState {
   None = "None",
+  BootNetwork = "BootNetwork",
   Initialization = "StateExplorerInitialization",
   Sleep = "StateExplorerSleep",
   Watch = "StateExplorerWatch",
@@ -41,6 +52,10 @@ export enum StateExplorerState {
 export interface Request {
   protocol_id: number;
   request: any;
+}
+
+export interface BootNetworkState {
+  manifest_path: string;
 }
 
 export interface StateExplorerInitializationState {
@@ -173,6 +188,7 @@ export interface StateExplorerNetworkingState {
   state: StateExplorerState;
   manifestPath?: string;
   broadcastableState?:
+    | BootNetworkState
     | StateExplorerInitializationState
     | StateExplorerWatchState
     | StateExplorerPauseState;
@@ -186,6 +202,7 @@ export interface RequestQueue {
 export interface NetworkingState {
   activeFeature?: ActiveFeature;
   requestQueue: RequestQueue;
+  bootNetworkStatus?: BootNetworkData;
   stateExplorer: StateExplorerNetworkingState;
 }
 
@@ -204,7 +221,7 @@ export const networkingSlice = createSlice({
   name: "networking",
   initialState,
   reducers: {
-    initializeStateExplorer: (
+    initializeNetwork: (
       state: NetworkingState,
       action: PayloadAction<string>
     ) => {
@@ -213,6 +230,48 @@ export const networkingSlice = createSlice({
         return;
       }
 
+      state.stateExplorer.active = true;
+      if (
+        state.stateExplorer.state === StateExplorerState.None ||
+        action.payload !== state.stateExplorer.manifestPath
+      ) {
+        state.stateExplorer.state = StateExplorerState.BootNetwork;
+        state.stateExplorer.manifestPath = action.payload;
+      }
+      state.stateExplorer.broadcastableState = {
+        manifest_path: action.payload,
+      };
+
+      let request = Object.fromEntries([
+        [
+          StateExplorerState.BootNetwork,
+          state.stateExplorer.broadcastableState,
+        ],
+      ]);
+      let payload = {
+        protocol_id: 1,
+        request: request,
+      };
+
+      state.requestQueue = {
+        nextRequest: payload,
+        poll: false,
+      };
+    },
+    updateBootSequence: (
+      state: NetworkingState,
+      action: PayloadAction<BootNetworkData>
+    ) => {
+      state.bootNetworkStatus = action.payload;
+    },
+    initializeStateExplorer: (
+      state: NetworkingState,
+      action: PayloadAction<string>
+    ) => {
+      // Guard duplicate messages
+      if (state.stateExplorer.active) {
+        return;
+      }
       state.stateExplorer.active = true;
       if (
         state.stateExplorer.state === StateExplorerState.None ||
@@ -269,6 +328,10 @@ export const networkingSlice = createSlice({
       state: NetworkingState,
       action: PayloadAction<ContractFieldTarget>
     ) => {
+      if (!isNetworkReady(state.bootNetworkStatus)) {
+        return;
+      }
+
       state.stateExplorer.active = true;
 
       let inner: StateExplorerWatchState = {
@@ -324,11 +387,17 @@ export const networkingSlice = createSlice({
   },
 });
 
+function isNetworkReady(bootNetworkStatus?: BootNetworkData): boolean {
+  return bootNetworkStatus !== undefined && bootNetworkStatus.protocol_deployed;
+}
+
 export const {
+  initializeNetwork,
   initializeStateExplorer,
   watchContractField,
   watchWallet,
   dequeueRequest,
+  updateBootSequence,
 } = networkingSlice.actions;
 
 export const selectActiveFeature = (state: RootState) =>
@@ -336,6 +405,13 @@ export const selectActiveFeature = (state: RootState) =>
 
 export const selectStateExplorerNetworkingState = (state: RootState) =>
   state.networking.stateExplorer;
+
+export const selectNetworkBookStatus = (state: RootState) =>
+  state.networking.bootNetworkStatus === undefined ? "?" : state.networking.bootNetworkStatus.status ;
+
+export const selectIsNetworkBooting = (state: RootState) =>
+  isNetworkReady(state.networking.bootNetworkStatus) === false
+
 
 export const selectStateExplorerBroadcastableState = (state: RootState) =>
   state.networking.stateExplorer.broadcastableState;

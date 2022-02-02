@@ -1,7 +1,7 @@
 import { useEffect, useCallback, createContext, ReactChild } from "react";
 import { updateContracts, updateField } from "../states/StateExplorerState";
 import { useInterval } from '../hooks';
-import { selectRequestQueue, StateExplorerStateUpdate, dequeueRequest } from '../states/NetworkingState';
+import { selectIsNetworkBooting, selectRequestQueue, StateExplorerStateUpdate, updateBootSequence, dequeueRequest, initializeStateExplorer } from '../states/NetworkingState';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { Contract } from "../types";
 import { appendBitcoinBlocks, appendStacksBlocks } from "../states/BlocksExplorerState";
@@ -21,19 +21,28 @@ const NetworkingProvider = (props: ISocketProvider) => {
 
     let dispatch = useRootDispatch();
     let requestQueue = useRootSelector(selectRequestQueue);
+    let isNetworkBooting = useRootSelector(selectIsNetworkBooting);
 
     const performRequest = () => {
         if (requestQueue.nextRequest) {
             let req = JSON.stringify(requestQueue.nextRequest);
             ws.send(req);
-
             dispatch(dequeueRequest(requestQueue.nextRequest));
         }
     };
 
     const onMessage = useCallback((message) => {
         const data: StateExplorerStateUpdate = JSON.parse(message?.data);
-        if ('StateExplorerInitialization' in data.update) {
+        if ('BootNetwork' in data.update) {
+            let payload = {...data.update.BootNetwork};
+            if (payload.protocol_deployed) {
+                dispatch(initializeStateExplorer);
+            }
+            if (payload.contracts.length > 0) {
+                dispatch(updateContracts(payload.contracts));
+            }
+            dispatch(updateBootSequence(payload));
+        } else if ('StateExplorerInitialization' in data.update) {
             let payload = {...data.update.StateExplorerInitialization};
             let contracts: Array<Contract> = payload.contracts;
             dispatch(updateContracts(contracts));
@@ -54,7 +63,11 @@ const NetworkingProvider = (props: ISocketProvider) => {
 
     useEffect(() => performRequest());
 
-    useInterval(() => performRequest(), WS_POLL_INTERVAL);
+    useInterval(() => {
+        if (!isNetworkBooting) {
+            performRequest()
+        } 
+    }, WS_POLL_INTERVAL);
 
     return (
         <SocketContext.Provider value={ws}>{props.children}</SocketContext.Provider>

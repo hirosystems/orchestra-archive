@@ -4,7 +4,7 @@ import { RootState } from "../stores/root";
 import { ContractFieldTarget, StateExplorerStateUpdateWatchData, TargetType } from "./NetworkingState";
 
 export interface StateExplorerState {
-  initialized: boolean,
+  initialized: boolean;
   contractsIdentifiers: Array<string>;
   bookmarks: { [fieldIdentifier: string]: boolean };
   notifications: { [fieldIdentifier: string]: boolean };

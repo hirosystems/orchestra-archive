@@ -4,14 +4,14 @@ import { Body } from '../components/Main';
 import { Box } from '@primer/react'
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { selectFields, selectBookmarks, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
-import { initializeStateExplorer } from '../states/NetworkingState';
+import { initializeStateExplorer, initializeNetwork } from '../states/NetworkingState';
 import { Wallet } from '../components/Sidebar/Wallet';
 
 function StateExplorer() {
 
   let dispatch = useRootDispatch();
   let hardcodedProjectPath = "/Users/ludovic/Coding/clarinet/clarinet-cli/examples/counter/Clarinet.toml";
-  dispatch(initializeStateExplorer(hardcodedProjectPath));
+  dispatch(initializeNetwork(hardcodedProjectPath));
 
   const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
   const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);

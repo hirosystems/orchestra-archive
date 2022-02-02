@@ -1,16 +1,19 @@
 import { Timeline, Box } from '@primer/react'
 import styled from "styled-components"
 import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
-import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
+import { selectNetworkBookStatus, StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
+import { useRootSelector } from "../../hooks/useRootSelector";
+
 
 export const Container = styled.div`
 `
 
 const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
+    let networkStatus = useRootSelector(selectNetworkBookStatus);
 
     if (props.field === undefined) {
         return (<div>
-            <Title name="Empty"/>
+            {networkStatus}
         </div>)
     }
  
