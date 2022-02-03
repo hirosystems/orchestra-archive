@@ -1,10 +1,10 @@
 {
 	"folders": [
 		{
-			"path": "orchestra-app"
+			"path": "orchestra-lib"
 		},
 		{
-			"path": "orchestra-lib"
+			"path": "orchestra-desktop"
 		}
 	],
 	"settings": {}
