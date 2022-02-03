@@ -59,7 +59,6 @@ pub struct StateExplorerSync {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StateExplorerWatch {
     stacks_block_identifier: BlockIdentifier,
-    bitcoin_block_identifier: BlockIdentifier,
     target: StateExplorerWatchTarget,
 }
 
@@ -86,7 +85,11 @@ pub enum NetworkResponse {
     StateExplorerInitialization(StateExplorerInitializationUpdate),
     StateExplorerSync(StateExplorerSyncUpdate),
     StateExplorerWatch(StateExplorerWatchUpdate),
-    Noop,
+    Noop(NoopUpdate),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct NoopUpdate {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -96,6 +99,7 @@ pub struct BootNetworkUpdate {
     stacks_chain_height: u64,
     protocol_deployed: bool,
     contracts: Vec<Contract>,
+    protocol_id: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -182,9 +186,10 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
 
                             let mut update = BootNetworkUpdate {
                                 status: "Booting network".to_string(),
-                                bitcoin_chain_height: 0,
-                                stacks_chain_height: 0,
+                                bitcoin_chain_height: 1,
+                                stacks_chain_height: 1,
                                 protocol_deployed: false,
+                                protocol_id: 1,
                                 contracts
                             };
                             backend_cmd_tx.send(BackendCommand::Poll(NetworkResponse::BootNetwork(update.clone()))).unwrap();
@@ -242,11 +247,11 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
     
                             NetworkResponse::BootNetwork(update)    
                         } else { 
-                            NetworkResponse::Noop
+                            NetworkResponse::Noop(NoopUpdate {})
                         }
                     }
                     NetworkRequest::StateExplorerInitialization(state) => {
-                        NetworkResponse::Noop
+                        NetworkResponse::Noop(NoopUpdate {})
                     }
                     NetworkRequest::StateExplorerSync(state) => {
 
@@ -275,7 +280,6 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                     contract_identifier: field.contract_identifier.clone(),
                                     field_name: field.field_name.clone(),
                                     stacks_block_identifier: watch_state.stacks_block_identifier.clone(),
-                                    bitcoin_block_identifier: watch_state.bitcoin_block_identifier.clone(),
                                 })).expect("Unable to communicate with backend");
                                 let response = rx.recv().unwrap();
 
@@ -535,67 +539,77 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
     let frontend_commands_supervisor_tx = supervisor_tx.clone();
     std::thread::spawn(move || {
         let mut ack = 1;
+        let mut network_booted = false;
         loop {
             let cmd = frontend_cmd_rx.recv().unwrap();
             match cmd {
                 FrontendCommand::PollState(state) => {
                     let update = match state.request {
-                        NetworkRequest::BootNetwork(_) => {
-                            NetworkResponse::BootNetwork(BootNetworkUpdate {
-                                status: "Network booting".to_string(),
-                                bitcoin_chain_height: 0,
-                                stacks_chain_height: 0,
-                                protocol_deployed: false,
-                                contracts: vec![]
-                            })
+                        NetworkRequest::BootNetwork(boot_state) => {
+                            if !network_booted {
+                                network_booted = true;
+                                let (config, settings) = config_from_clarinet_manifest_path(&boot_state.manifest_path);
+
+                                let mut transactions = vec![];
+                                for contract in settings.initial_contracts.iter() {
+                                    transactions.push(StacksTransactionData {
+                                        transaction_identifier: TransactionIdentifier { hash: "0".into() },
+                                        operations: vec![],
+                                        metadata: StacksTransactionMetadata {
+                                            success: true,
+                                            description: "".into(),
+                                            sponsor: None,
+                                            raw_tx: "".into(),
+                                            result: "(ok true)".into(),
+                                            sender: contract.deployer.clone().unwrap(),
+                                            fee: 1,
+                                            kind: StacksTransactionKind::ContractDeployment(StacksContractDeploymentData {
+                                                contract_identifier: format!("{}.{}", contract.deployer.clone().unwrap(), contract.name.clone().unwrap()),
+                                                code: contract.code.clone(),
+                                            }),
+                                            execution_cost: None,
+                                            receipt: StacksTransactionReceipt {
+                                                mutated_contracts_radius: HashSet::new(),
+                                                mutated_assets_radius: HashSet::new(),
+                                                events: vec![],
+                                            }
+                                        }
+                                    });
+                                }
+                                // Build a temporary block that the registration can rely on for the ProtocolRegistration.
+                                // Local only
+                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
+                                    block_identifier: block_identifier(0),
+                                    parent_block_identifier: block_identifier(0),
+                                    timestamp: 0,
+                                    transactions,
+                                    metadata: StacksBlockMetadata { 
+                                        bitcoin_anchor_block_identifier: block_identifier(1), 
+                                        pox_cycle_index: 0, 
+                                        pox_cycle_position: 0, 
+                                        pox_cycle_length: 0 
+                                    }
+                                }))).unwrap();
+    
+                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(config)).unwrap();
+                                
+                                let (tx, rx) = channel();
+                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
+                                let response = rx.recv().unwrap();
+    
+                                NetworkResponse::BootNetwork(BootNetworkUpdate {
+                                    status: "Network booting".to_string(),
+                                    bitcoin_chain_height: 0,
+                                    stacks_chain_height: 0,
+                                    protocol_deployed: true,
+                                    contracts: response.contracts,
+                                    protocol_id: 1,
+                                })
+                            } else {
+                                NetworkResponse::Noop(NoopUpdate {})
+                            }
                         }
                         NetworkRequest::StateExplorerInitialization(state_init) => {
-                            
-                            let (config, settings) = config_from_clarinet_manifest_path(&state_init.manifest_path);
-
-                            let mut transactions = vec![];
-                            for contract in settings.initial_contracts.iter() {
-                                transactions.push(StacksTransactionData {
-                                    transaction_identifier: TransactionIdentifier { hash: "0".into() },
-                                    operations: vec![],
-                                    metadata: StacksTransactionMetadata {
-                                        success: true,
-                                        description: "".into(),
-                                        sponsor: None,
-                                        raw_tx: "".into(),
-                                        result: "(ok true)".into(),
-                                        sender: contract.deployer.clone().unwrap(),
-                                        fee: 1,
-                                        kind: StacksTransactionKind::ContractDeployment(StacksContractDeploymentData {
-                                            contract_identifier: format!("{}.{}", contract.deployer.clone().unwrap(), contract.name.clone().unwrap()),
-                                            code: contract.code.clone(),
-                                        }),
-                                        execution_cost: None,
-                                        receipt: StacksTransactionReceipt {
-                                            mutated_contracts_radius: HashSet::new(),
-                                            mutated_assets_radius: HashSet::new(),
-                                            events: vec![],
-                                        }
-                                    }
-                                });
-                            }
-                            // Build a temporary block that the registration can rely on for the ProtocolRegistration.
-                            // Local only
-                            frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-                                block_identifier: block_identifier(0),
-                                parent_block_identifier: block_identifier(0),
-                                timestamp: 0,
-                                transactions,
-                                metadata: StacksBlockMetadata { 
-                                    bitcoin_anchor_block_identifier: block_identifier(1), 
-                                    pox_cycle_index: 0, 
-                                    pox_cycle_position: 0, 
-                                    pox_cycle_length: 0 
-                                }
-                            }))).unwrap();
-
-                            frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(config)).unwrap();
-                            
                             let (tx, rx) = channel();
                             frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
                             let response = rx.recv().unwrap();
@@ -627,7 +641,6 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                         contract_identifier: field.contract_identifier.clone(),
                                         field_name: field.field_name.clone(),
                                         stacks_block_identifier: watch_state.stacks_block_identifier.clone(),
-                                        bitcoin_block_identifier: watch_state.bitcoin_block_identifier.clone(),
                                     }));
                                     let response = rx.recv().unwrap();
 

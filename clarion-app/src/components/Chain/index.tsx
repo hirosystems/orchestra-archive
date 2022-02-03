@@ -13,7 +13,7 @@ cursor: default;
 `
 
 export const ChainBackground = styled.div`
-background-color: rgb(247, 246, 243);
+background-color: #F0F8FF; // rgb(247, 246, 243);
 height: 100%;
 padding-right: 8px;
 border-radius: 4px;
@@ -64,11 +64,15 @@ export const ChainPicker = styled.div`
     -ms-user-select: none;
     user-select: none;
     cursor: default;
-    color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgb(55, 53, 47)" : "rgb(180, 180, 180)"};
+    color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgb(9, 105, 218)" : "rgba(9, 105, 218, 0.4)"};
     &:hover {
         color: rgb(55, 53, 47);
     }
 `
+
+// backgroundColor = "rgb(221, 244, 255)"
+// color = "rgb(9, 105, 218)"
+
 
 const Chain = () => {
 

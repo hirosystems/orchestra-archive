@@ -26,8 +26,9 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         subtitle = `Data variable of type ${JSON.stringify(props.field.field_values.Var.value_type)}`;
         value = <ValueLabel name={props.field.field_values.Var.value}/>;
         // Events
+        let key = 0;
         for (let event of props.field.field_values.Var.events) {
-            events.push((<VarEvent event={event[0]} /> ))
+            events.push((<VarEvent key={key+=1} event={event[0]} /> ))
         }
     } else if ("Map" in props.field.field_values) {
         let entriesCount = props.field.field_values.Map.entries.length;
@@ -39,8 +40,9 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         }
         value = <MapTable keyType={props.field.field_values.Map.key_type} valueType={props.field.field_values.Map.value_type} entries={entries}/>
         // Events
+        let key = 0;
         for (let event of props.field.field_values.Map.events) {
-            events.push((<MapEvent event={event[0]} /> ))
+            events.push((<MapEvent key={key+=1} event={event[0]} /> ))
         }
     } else if ("Nft" in props.field.field_values) {
         let tokensCount = props.field.field_values.Nft.tokens.length;
@@ -52,8 +54,9 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         }
         value = <NftTable assetType={props.field.field_values.Nft.token_type} tokens={tokens}/>
         // Events
+        let key = 0;
         for (let event of props.field.field_values.Nft.events) {
-            events.push((<NftEvent event={event[0]} /> ))
+            events.push((<NftEvent key={key+=1} event={event[0]} /> ))
         }        
     } else if ("Ft" in props.field.field_values) {
         let balancesCount = props.field.field_values.Ft.balances.length;
@@ -65,8 +68,9 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         }
         value = <FtTable balances={balances}/>
         // Events
+        let key = 0;
         for (let event of props.field.field_values.Ft.events) {
-            events.push((<FtEvent event={event[0]} /> ))
+            events.push((<FtEvent key={key+=1} event={event[0]} /> ))
         }        
     }  
 

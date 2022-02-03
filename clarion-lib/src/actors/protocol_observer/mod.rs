@@ -374,13 +374,13 @@ impl Actor for ProtocolObserver {
                 let bitcoin_db = blocks::bitcoin_blocks_db_read(&self.storage_driver);
                 let bitcoin_tip = u64::from_be_bytes(bitcoin_db.get("tip".as_bytes()).unwrap().unwrap().try_into().unwrap());
                 let mut bitcoin_blocks = vec![];
-                for missing_block in request.bitcoin_block_identifier.index..bitcoin_tip {
-                    let hash = stacks_db.get(&missing_block.to_be_bytes()).unwrap().unwrap();
-                    let block_bytes = stacks_db.get(&format!("hash:{}", String::from_utf8(hash).unwrap())).unwrap().unwrap();
-                    let block = serde_json::from_slice::<BitcoinBlockData>(&block_bytes)
-                                        .expect("Unable to deserialize contract");
-                    bitcoin_blocks.push(block);
-                }
+                // for missing_block in request..index..bitcoin_tip {
+                //     let hash = stacks_db.get(&missing_block.to_be_bytes()).unwrap().unwrap();
+                //     let block_bytes = stacks_db.get(&format!("hash:{}", String::from_utf8(hash).unwrap())).unwrap().unwrap();
+                //     let block = serde_json::from_slice::<BitcoinBlockData>(&block_bytes)
+                //                         .expect("Unable to deserialize contract");
+                //     bitcoin_blocks.push(block);
+                // }
 
                 let response = FieldValuesResponse {
                     bitcoin_blocks,

@@ -1,12 +1,12 @@
 import { MouseEvent } from 'react';
 import styled from "styled-components"
 import { useRootDispatch, useRootSelector } from "../../hooks/useRootSelector";
-import { watchContractField } from '../../states/NetworkingState';
+import { watchContractField, buildNextRequest } from '../../states/NetworkingState';
 import { activateField, selectActiveFieldIdentifier } from "../../states/StateExplorerState";
 
 const Container = styled.div`
-display: flex;
-justify-content: flex-end;
+    display: flex;
+    justify-content: flex-end;
     color: rgb(55, 53, 47);
     text-transform: uppercase;
     font-size: 12px;
@@ -83,6 +83,7 @@ const ContractField = (props: { fieldName: string, fieldType?: string, contractI
         let payload = { field_name: props.fieldName, contract_identifier: props.contractIdentifier };
         dispatch(watchContractField(payload));
         dispatch(activateField(payload));
+        dispatch(buildNextRequest(1));
     }
     
     return (

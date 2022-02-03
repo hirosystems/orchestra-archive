@@ -153,7 +153,7 @@ const NftTable = (props: { assetType: ClarityAbiType, tokens: Array<[string, str
           <tr>
             {
               headers.map((header, i) => {
-                return <th style={{color: grey[900]}}>{header}</th>
+                return <th key={i} style={{color: grey[900]}}>{header}</th>
               })
             }
             <th style={{color: 'rgb(9, 105, 218)'}} >Owner</th>

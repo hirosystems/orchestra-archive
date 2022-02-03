@@ -182,7 +182,6 @@ pub struct FieldValuesRequest {
     pub contract_identifier: String,
     pub field_name: String,
     pub protocol_id: u64,
-    pub bitcoin_block_identifier: BlockIdentifier,
     pub stacks_block_identifier: BlockIdentifier,
 }
 

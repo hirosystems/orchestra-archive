@@ -38,7 +38,8 @@ export interface BootNetworkData {
   bitcoin_chain_height: number,
   stacks_chain_height: number,
   protocol_deployed: boolean,
-  contracts: Array<Contract>;
+  contracts: Array<Contract>,
+  protocol_id: number,
 }
 
 export enum StateExplorerState {
@@ -179,19 +180,7 @@ export enum TargetType {
 
 export interface StateExplorerWatchState {
   stacks_block_identifier: BlockIdentifier;
-  bitcoin_block_identifier: BlockIdentifier;
   target: WatchedTarget;
-}
-
-export interface StateExplorerNetworkingState {
-  active: boolean;
-  state: StateExplorerState;
-  manifestPath?: string;
-  broadcastableState?:
-    | BootNetworkState
-    | StateExplorerInitializationState
-    | StateExplorerWatchState
-    | StateExplorerPauseState;
 }
 
 export interface RequestQueue {
@@ -200,211 +189,157 @@ export interface RequestQueue {
 } 
 
 export interface NetworkingState {
-  activeFeature?: ActiveFeature;
-  requestQueue: RequestQueue;
+  manifestFileWatched?: string;
   bootNetworkStatus?: BootNetworkData;
-  stateExplorer: StateExplorerNetworkingState;
+  protocolIdentifierWatched?: number;
+  fieldIdentifierWatched?: [[string, string], BlockIdentifier];
+  latestBlockIdentifierKnownByFieldIdentifier: { [fieldIdentifier: string]: BlockIdentifier };
+  requestNonce: number,
+  nextRequest?: any; // todo: add typing
 }
 
 const initialState: NetworkingState = {
-  stateExplorer: {
-    active: false,
-    state: StateExplorerState.None,
-  },
-  requestQueue: {
-    nextRequest: undefined,
-    poll: false,
-  }
+  latestBlockIdentifierKnownByFieldIdentifier: {},
+  requestNonce: 0,
 };
 
 export const networkingSlice = createSlice({
   name: "networking",
   initialState,
   reducers: {
-    initializeNetwork: (
+    initiateBootSequence: (
       state: NetworkingState,
       action: PayloadAction<string>
     ) => {
-      // Guard duplicate messages
-      if (state.stateExplorer.active) {
-        return;
+      if (state.bootNetworkStatus === undefined) {
+        state.fieldIdentifierWatched = undefined;
+        state.nextRequest = undefined;
+        state.protocolIdentifierWatched = undefined;
+        state.manifestFileWatched = action.payload;  
       }
-
-      state.stateExplorer.active = true;
-      if (
-        state.stateExplorer.state === StateExplorerState.None ||
-        action.payload !== state.stateExplorer.manifestPath
-      ) {
-        state.stateExplorer.state = StateExplorerState.BootNetwork;
-        state.stateExplorer.manifestPath = action.payload;
-      }
-      state.stateExplorer.broadcastableState = {
-        manifest_path: action.payload,
-      };
-
-      let request = Object.fromEntries([
-        [
-          StateExplorerState.BootNetwork,
-          state.stateExplorer.broadcastableState,
-        ],
-      ]);
-      let payload = {
-        protocol_id: 1,
-        request: request,
-      };
-
-      state.requestQueue = {
-        nextRequest: payload,
-        poll: false,
-      };
     },
     updateBootSequence: (
       state: NetworkingState,
       action: PayloadAction<BootNetworkData>
     ) => {
-      state.bootNetworkStatus = action.payload;
-    },
-    initializeStateExplorer: (
-      state: NetworkingState,
-      action: PayloadAction<string>
-    ) => {
-      // Guard duplicate messages
-      if (state.stateExplorer.active) {
-        return;
+      if (state.bootNetworkStatus === undefined) {
+        state.bootNetworkStatus = action.payload;
       }
-      state.stateExplorer.active = true;
-      if (
-        state.stateExplorer.state === StateExplorerState.None ||
-        action.payload !== state.stateExplorer.manifestPath
-      ) {
-        state.stateExplorer.state = StateExplorerState.Initialization;
-        state.stateExplorer.manifestPath = action.payload;
+      if (action.payload.protocol_deployed === true) {
+        state.protocolIdentifierWatched = action.payload.protocol_id;
       }
-      state.stateExplorer.broadcastableState = {
-        manifest_path: action.payload,
-      };
-
-      let request = Object.fromEntries([
-        [
-          StateExplorerState.Initialization,
-          state.stateExplorer.broadcastableState,
-        ],
-      ]);
-      let payload = {
-        protocol_id: 1,
-        request: request,
-      };
-
-      state.requestQueue = {
-        nextRequest: payload,
-        poll: false,
-      };
     },
-    // watchContract: (
-    //   state: NetworkingState,
-    //   action: PayloadAction<Contract>
-    // ) => {
-    //   state.stateExplorer.active = true;
-
-    //   let target = Object.fromEntries([[TargetType.Contract, action.payload]]);
-
-    //   let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
-    //   let payload = {
-    //     protocol_id: 0,
-    //     request: request,
-    //   };
-
-    //   state.request = payload;
-    // },
-    dequeueRequest: (
+    updateBlockIdentifierForContractField: (
       state: NetworkingState,
-      action: PayloadAction<Request>
+      action: PayloadAction<[string, BlockIdentifier]>
     ) => {
-      if (action.payload === state.requestQueue.nextRequest && !state.requestQueue.poll) {
-        state.requestQueue.nextRequest = undefined;
+      let [fieldIdentifier, blockIdentifier] = action.payload;
+      let knownTip = state.latestBlockIdentifierKnownByFieldIdentifier[fieldIdentifier];
+      if (knownTip === undefined) {
+        state.latestBlockIdentifierKnownByFieldIdentifier[fieldIdentifier] = blockIdentifier;
+        let [key, knownTip] = state.fieldIdentifierWatched!;
+        state.fieldIdentifierWatched = [key, blockIdentifier];
+      } else {
+        if (knownTip.hash !== blockIdentifier.hash) {
+          state.latestBlockIdentifierKnownByFieldIdentifier[fieldIdentifier] = blockIdentifier;
+          let [key, knownTip] = state.fieldIdentifierWatched!;
+          state.fieldIdentifierWatched = [key, blockIdentifier];
+        }  
       }
     },
     watchContractField: (
       state: NetworkingState,
       action: PayloadAction<ContractFieldTarget>
     ) => {
-      if (!isNetworkReady(state.bootNetworkStatus)) {
+      if (state.protocolIdentifierWatched === undefined) {
         return;
       }
 
-      state.stateExplorer.active = true;
-
-      let inner: StateExplorerWatchState = {
-        stacks_block_identifier: {
+      let fieldIdentifier = `${action.payload.contract_identifier}::${action.payload.field_name}`;
+      let latestKnownBlock = state.latestBlockIdentifierKnownByFieldIdentifier[fieldIdentifier];
+      if (latestKnownBlock === undefined) {
+        // Starting with block 1 by default?
+        latestKnownBlock = {
           index: 1,
-          hash: "1",
-        },
-        bitcoin_block_identifier: {
-          index: 1,
-          hash: "1",
-        },
+          hash: "",
+        };
+      }
+      state.fieldIdentifierWatched = [[action.payload.contract_identifier, action.payload.field_name], latestKnownBlock];
+    },
+    buildNextRequest: (
+      state: NetworkingState,
+      action: PayloadAction<number>
+    ) => {
+      if (state.manifestFileWatched === undefined) {
+        state.nextRequest = undefined;
+        return;
+      }
+  
+      if (state.bootNetworkStatus === undefined) {
+        state.nextRequest = {
+          protocol_id: 1,
+          request: {
+            "BootNetwork": {
+              manifest_path: state.manifestFileWatched
+            }
+          },
+        };
+        return;
+        // Initiate Call #1
+      } else if (state.bootNetworkStatus.protocol_deployed === false) {
+        // Initialization still in progress
+        state.nextRequest = undefined;
+        return;
+      } else {
+        // Backend is ready, let's continue.
+      }
+  
+      if (state.protocolIdentifierWatched === undefined) {
+        state.nextRequest = undefined;
+        return;
+      }
+  
+      if (state.fieldIdentifierWatched === undefined) {
+        // Nothing being watched. Should just be fetching general blocks informations (todo) 
+        state.nextRequest = undefined;
+        return;
+      }
+  
+      let [[contractIdentifier, fieldName], latestKnownBlockIdentifier] = state.fieldIdentifierWatched;
+  
+      let request: StateExplorerWatchState = {
+        stacks_block_identifier: latestKnownBlockIdentifier,
         target: {
           "ContractField": {
-            contract_identifier: action.payload.contract_identifier,
-            field_name: action.payload.field_name,
+            contract_identifier: contractIdentifier,
+            field_name: fieldName,
           }
         }
       };
   
-      // let target = Object.fromEntries([
-      //   [TargetType.ContractField, action.payload],
-      // ]);
+      state.requestNonce += action.payload;
 
-      // let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
-      let payload = {
-        protocol_id: 1,
+      state.nextRequest = {
+        protocol_id: state.protocolIdentifierWatched,
+        nonce: state.requestNonce,
         request: {
-          "StateExplorerWatch": inner
+          "StateExplorerWatch": request
         },
       };
-
-      state.requestQueue = {
-        nextRequest: payload,
-        poll: true,
-      };
-    },
-    watchWallet: (state: NetworkingState, action: PayloadAction<WalletTarget>) => {
-      state.stateExplorer.active = true;
-
-      // let target = Object.fromEntries([[TargetType.Wallet, action.payload]]);
-
-      // let request = Object.fromEntries([[StateExplorerState.Watch, target]]);
-      // let payload = {
-      //   protocol_id: 0,
-      //   request: request,
-      // };
-
-      // state.requestQueue = {
-      //   nextRequest: payload,
-      //   poll: true,
-      // };
-    },
-  },
-});
+    }
+}});
 
 function isNetworkReady(bootNetworkStatus?: BootNetworkData): boolean {
   return bootNetworkStatus !== undefined && bootNetworkStatus.protocol_deployed;
 }
 
 export const {
-  initializeNetwork,
-  initializeStateExplorer,
   watchContractField,
-  watchWallet,
-  dequeueRequest,
+  updateBlockIdentifierForContractField,
   updateBootSequence,
+  buildNextRequest,
+  initiateBootSequence,
 } = networkingSlice.actions;
-
-export const selectActiveFeature = (state: RootState) =>
-  state.networking.activeFeature;
-
-export const selectStateExplorerNetworkingState = (state: RootState) =>
-  state.networking.stateExplorer;
 
 export const selectNetworkBookStatus = (state: RootState) =>
   state.networking.bootNetworkStatus === undefined ? "?" : state.networking.bootNetworkStatus.status ;
@@ -412,10 +347,63 @@ export const selectNetworkBookStatus = (state: RootState) =>
 export const selectIsNetworkBooting = (state: RootState) =>
   isNetworkReady(state.networking.bootNetworkStatus) === false
 
+export const selectNextRequest = (state: RootState) =>
+  state.networking.nextRequest
 
-export const selectStateExplorerBroadcastableState = (state: RootState) =>
-  state.networking.stateExplorer.broadcastableState;
 
-export const selectRequestQueue = (state: RootState) => state.networking.requestQueue;
+// export const selectNextRequest = (state: RootState) => {
+//     let nextRequest = undefined;
+//     if (state.networking.manifestFileWatched === undefined) {
+//       return nextRequest;
+//     }
+
+//     if (state.networking.bootNetworkStatus === undefined) {
+//       nextRequest = {
+//         protocol_id: 1,
+//         request: {
+//           "BootNetwork": {
+//             manifest_path: state.networking.manifestFileWatched
+//           }
+//         },
+//       };
+//       // Initiate Call #1
+//     } else if (state.networking.bootNetworkStatus.protocol_deployed === false) {
+//       // Initialization still in progress
+//       return nextRequest;
+//     } else {
+//       // Backend is ready, let's continue.
+//     }
+
+//     if (state.networking.protocolIdentifierWatched === undefined) {
+//       return nextRequest;
+//     }
+
+//     if (state.networking.fieldIdentifierWatched === undefined) {
+//       // Nothing being watched. Should just be fetching general blocks informations (todo) 
+//       return nextRequest;
+//     }
+
+//     let [[contractIdentifier, fieldName], latestKnownBlockIdentifier] = state.networking.fieldIdentifierWatched;
+
+//     let request: StateExplorerWatchState = {
+//       stacks_block_identifier: latestKnownBlockIdentifier,
+//       target: {
+//         "ContractField": {
+//           contract_identifier: contractIdentifier,
+//           field_name: fieldName,
+//         }
+//       }
+//     };
+
+//     nextRequest = {
+//       protocol_id: state.networking.protocolIdentifierWatched,
+//       nonce: state.networking.requestNonce,
+//       request: {
+//         "StateExplorerWatch": request
+//       },
+//     };
+
+//     return nextRequest;
+// };
 
 export default networkingSlice.reducer;
