@@ -8,7 +8,6 @@ use std::sync::mpsc::channel;
 mod orchestra;
 
 fn main() {
-
   let (frontend_cmd_tx, frontend_cmd_rx) = channel();
   let (backend_cmd_tx, backend_cmd_rx) = channel();
 
@@ -22,6 +21,8 @@ fn main() {
   });
 
   let context = tauri::generate_context!("tauri.conf.json");
-  let app = tauri::Builder::default().build(context).expect("Failed building");
+  let app = tauri::Builder::default()
+    .build(context)
+    .expect("Failed building");
   app.run(|handle, event| {});
 }

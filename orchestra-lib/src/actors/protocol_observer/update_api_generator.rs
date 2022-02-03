@@ -1,6 +1,6 @@
 use crate::datastore::Datastore;
-use clarinet_lib::types::{BitcoinChainEvent, StacksChainEvent};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
+use clarinet_lib::types::{BitcoinChainEvent, StacksChainEvent};
 
 pub fn stacks_chain_event_handler(
     datastore: &dyn Datastore,

@@ -2,13 +2,13 @@ use kompact::prelude::*;
 
 #[derive(ComponentDefinition, Actor)]
 pub struct UpdateStateExplorer {
-    ctx: ComponentContext<Self>
+    ctx: ComponentContext<Self>,
 }
 
 impl UpdateStateExplorer {
     pub fn new() -> UpdateStateExplorer {
         UpdateStateExplorer {
-            ctx: ComponentContext::uninitialised()
+            ctx: ComponentContext::uninitialised(),
         }
     }
 }

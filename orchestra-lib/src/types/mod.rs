@@ -1,10 +1,14 @@
-use std::collections::{BTreeMap, HashSet, HashMap};
-use std::sync::mpsc::Sender;
-use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterfaceAtomType, ContractInterface};
+use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{
+    ContractInterface, ContractInterfaceAtomType,
+};
 use clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 use clarinet_lib::clarity_repl::clarity::util::bitcoin::blockdata::transaction::Transaction;
-use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentifier, BitcoinBlockData, StacksBlockData};
-use clarinet_lib::types::events::{StacksTransactionEvent};
+use clarinet_lib::types::events::StacksTransactionEvent;
+use clarinet_lib::types::{
+    AccountIdentifier, BitcoinBlockData, BlockIdentifier, StacksBlockData, TransactionIdentifier,
+};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::mpsc::Sender;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct OrchestraPid(pub u64);
