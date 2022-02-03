@@ -3,7 +3,7 @@ mod contract_processor;
 mod protocol_observer;
 mod block_store_manager;
 
-pub use supervisor::{ClarionSupervisor, ClarionSupervisorMessage};
+pub use supervisor::{OrchestraSupervisor, OrchestraSupervisorMessage};
 pub use contract_processor::{ContractProcessor, ContractProcessorMessage};
 pub use protocol_observer::{ProtocolObserver, ProtocolObserverMessage};
 pub use block_store_manager::{BlockStoreManager, BlockStoreManagerMessage};
@@ -16,7 +16,7 @@ use crate::datastore::StorageDriver;
 
 pub fn run_supervisor(
     storage_driver: StorageDriver,
-    supervisor_cmd_rx: Receiver<ClarionSupervisorMessage>,
+    supervisor_cmd_rx: Receiver<OrchestraSupervisorMessage>,
 ) -> Result<(), String> {
     match block_on(do_run_supervisor(
         storage_driver,
@@ -37,7 +37,7 @@ where
 
 pub async fn do_run_supervisor(
     storage_driver: StorageDriver,
-    supervisor_cmd_rx: Receiver<ClarionSupervisorMessage>,
+    supervisor_cmd_rx: Receiver<OrchestraSupervisorMessage>,
 ) -> Result<(), String> {
     // let drain = slog::Discard;
     // let log  = slog::Logger::root(drain, o!());
@@ -46,7 +46,7 @@ pub async fn do_run_supervisor(
 
     // info!(log, "Spawning supervisor");
     let system = KompactConfig::default().build().expect("system");
-    let supervisor: Arc<Component<ClarionSupervisor>> = system.create(|| ClarionSupervisor::new(storage_driver) );
+    let supervisor: Arc<Component<OrchestraSupervisor>> = system.create(|| OrchestraSupervisor::new(storage_driver) );
     system.start(&supervisor);
     let supervisor_ref = supervisor.actor_ref();
 
@@ -69,7 +69,7 @@ mod test {
     use clarinet_lib::types::{BlockIdentifier, StacksBlockMetadata, StacksBlockData, StacksTransactionData, StacksTransactionKind, TransactionIdentifier, StacksTransactionMetadata, StacksTransactionReceipt, StacksContractDeploymentData};
     use std::collections::HashSet;
     use crate::datastore::StorageDriver;
-    use crate::actors::{ClarionSupervisorMessage};
+    use crate::actors::{OrchestraSupervisorMessage};
 
     #[derive(Debug)]
     struct MockedSpan {
@@ -205,7 +205,7 @@ mod test {
             run_supervisor(storage_driver_moved, rx)
         });
 
-        let clarion_manifest = ProtocolObserverConfig {
+        let orchestra_manifest = ProtocolObserverConfig {
             identifier: ProtocolObserverId(0),
             project: ProjectMetadata {
                 name: "test".into(),
@@ -221,12 +221,12 @@ mod test {
         let block = block_with_transactions(vec![
             transaction_contract_deployment(test_contract_id.to_string(), "(print \"hello world\")")
         ]);
-        tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
+        tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
 
         let delay = time::Duration::from_millis(100);
         thread::sleep(delay);
 
-        tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(clarion_manifest)).unwrap();
+        tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(orchestra_manifest)).unwrap();
 
         let mut transaction = transaction_contract_call_impacting_contract_id(test_contract_id.to_string(), true);
         transaction.metadata.receipt.events.append(&mut vec![
@@ -365,7 +365,7 @@ mod test {
         let block = block_with_transactions(vec![
             transaction
         ]);
-        tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
+        tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(block))).unwrap();
 
         let delay = time::Duration::from_millis(100);
         thread::sleep(delay);
@@ -374,7 +374,7 @@ mod test {
         thread::sleep(delay);
 
 
-        tx.send(ClarionSupervisorMessage::Exit).unwrap();
+        tx.send(OrchestraSupervisorMessage::Exit).unwrap();
 
         let _res = handle.join().unwrap();
         

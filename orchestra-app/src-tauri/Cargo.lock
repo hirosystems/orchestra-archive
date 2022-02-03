@@ -93,7 +93,7 @@ checksum = "84450d0b4a8bd1ba4144ce8ce718fbc5d071358b1e5384bace6536b3d1f2d5b3"
 name = "app"
 version = "0.1.0"
 dependencies = [
- "clarion_lib",
+ "orchestra_lib",
  "serde",
  "serde_json",
  "tauri",
@@ -929,23 +929,6 @@ dependencies = [
  "uuid",
  "winapi",
  "winres",
-]
-
-[[package]]
-name = "clarion_lib"
-version = "0.1.0"
-dependencies = [
- "clarinet",
- "kompact",
- "opentelemetry",
- "opentelemetry-jaeger",
- "rocksdb",
- "serde",
- "serde_derive",
- "serde_json",
- "slog",
- "slog-async",
- "slog-term",
 ]
 
 [[package]]
@@ -3622,6 +3605,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffeac823339e8b0f27b961f4385057bf9f97f2863bc745bd015fd6091f2270e9"
 dependencies = [
  "opentelemetry",
+]
+
+[[package]]
+name = "orchestra_lib"
+version = "0.1.0"
+dependencies = [
+ "clarinet",
+ "kompact",
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "rocksdb",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-term",
 ]
 
 [[package]]

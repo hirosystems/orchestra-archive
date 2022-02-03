@@ -1,6 +1,6 @@
-use clarion_lib::clarinet_lib::clarity_repl::repl::{Session, SessionSettings};
-use clarion_lib::clarinet_lib::poke::load_session_settings;
-use clarion_lib::clarinet_lib::publish::Network;
+use orchestra_lib::clarinet_lib::clarity_repl::repl::{Session, SessionSettings};
+use orchestra_lib::clarinet_lib::poke::load_session_settings;
+use orchestra_lib::clarinet_lib::publish::Network;
 use serde::{self, Deserialize, Serialize};
 use serde_json::json;
 
@@ -11,14 +11,14 @@ use std::path::PathBuf;
 use std::thread;
 use std::time;
 
-use clarion_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self};
-use clarion_lib::actors::{self};
-use clarion_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
-use clarion_lib::clarinet_lib::types::{StacksTransactionReceipt, BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata, StacksTransactionData, StacksTransactionMetadata, StacksTransactionKind, StacksContractDeploymentData};
-use clarion_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData, FTMintEventData, FTTransferEventData, NFTMintEventData, NFTTransferEventData, FTBurnEventData, NFTBurnEventData};
-use clarion_lib::types::{ProtocolObserverConfig, FieldValues, FieldValuesRequest, Contract, ProtocolObserverId};
+use orchestra_lib::clarinet_lib::integrate::{DevnetOrchestrator, DevnetEvent, self};
+use orchestra_lib::actors::{self};
+use orchestra_lib::clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{ContractInterface, build_contract_interface};
+use orchestra_lib::clarinet_lib::types::{StacksTransactionReceipt, BlockIdentifier, StacksBlockData, BitcoinBlockData, StacksChainEvent, BitcoinChainEvent, TransactionIdentifier, BitcoinBlockMetadata, StacksTransactionData, StacksTransactionMetadata, StacksTransactionKind, StacksContractDeploymentData};
+use orchestra_lib::clarinet_lib::types::events::{StacksTransactionEvent, DataVarSetEventData, DataMapInsertEventData, DataMapUpdateEventData, DataMapDeleteEventData, FTMintEventData, FTTransferEventData, NFTMintEventData, NFTTransferEventData, FTBurnEventData, NFTBurnEventData};
+use orchestra_lib::types::{ProtocolObserverConfig, FieldValues, FieldValuesRequest, Contract, ProtocolObserverId};
 
-use clarion_lib::datastore::StorageDriver;
+use orchestra_lib::datastore::StorageDriver;
 use tungstenite::{
     accept_hdr,
     handshake::server::{Request, Response},
@@ -147,7 +147,7 @@ pub enum FrontendCommand {
 }
 
 pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
-    use clarion_lib::actors::{ClarionSupervisorMessage};
+    use orchestra_lib::actors::{OrchestraSupervisorMessage};
     use std::convert::TryInto;
 
     let mut protocol_observer_config = None;
@@ -223,7 +223,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                 }
                             }
 
-                            tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(config.clone())).unwrap();
+                            tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(config.clone())).unwrap();
 
                             let supervisor_tx_relayer = tx.clone();
                             
@@ -235,10 +235,10 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                     let event = devnet_events_rx.recv().unwrap();
                                     match event {
                                         DevnetEvent::BitcoinChainEvent(event) => {
-                                            supervisor_tx_relayer.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(event)).unwrap();
+                                            supervisor_tx_relayer.send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event)).unwrap();
                                         }
                                         DevnetEvent::StacksChainEvent(event) => {
-                                            supervisor_tx_relayer.send(ClarionSupervisorMessage::ProcessStacksChainEvent(event)).unwrap();
+                                            supervisor_tx_relayer.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event)).unwrap();
                                         }
                                         _ => {}
                                     }
@@ -274,7 +274,7 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
                                     _ => panic!("Boot sequence issue")
                                 };
         
-                                supervisor_tx.send(ClarionSupervisorMessage::GetFieldValues(FieldValuesRequest {
+                                supervisor_tx.send(OrchestraSupervisorMessage::GetFieldValues(FieldValuesRequest {
                                     protocol_id: state.protocol_id,
                                     tx,
                                     contract_identifier: field.contract_identifier.clone(),
@@ -313,8 +313,8 @@ pub fn run_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rece
 }
 
 pub fn config_and_interface_from_clarinet_manifest_path(manifest_path: &str) -> (ProtocolObserverConfig, Vec<Contract>) {
-    use clarion_lib::types::{ProjectMetadata, ContractSettings, ProtocolObserverId};
-    use clarion_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
+    use orchestra_lib::types::{ProjectMetadata, ContractSettings, ProtocolObserverId};
+    use orchestra_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 
     let manifest_path = PathBuf::from(manifest_path);
 
@@ -346,7 +346,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(manifest_path: &str) -> 
         });
     }
 
-    let clarion_manifest = ProtocolObserverConfig {
+    let orchestra_manifest = ProtocolObserverConfig {
         identifier: ProtocolObserverId(1),
         project: ProjectMetadata {
             name: "counter".into(),
@@ -358,12 +358,12 @@ pub fn config_and_interface_from_clarinet_manifest_path(manifest_path: &str) -> 
         lambdas: vec![],
         contracts: observed_contracts,
     };
-    (clarion_manifest, interfaces)
+    (orchestra_manifest, interfaces)
 }
 
 pub fn config_from_clarinet_manifest_path(manifest_path: &str) -> (ProtocolObserverConfig, SessionSettings) {
-    use clarion_lib::types::{ProjectMetadata, ContractSettings, ProtocolObserverId};
-    use clarion_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
+    use orchestra_lib::types::{ProjectMetadata, ContractSettings, ProtocolObserverId};
+    use orchestra_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
 
     let manifest_path = PathBuf::from(manifest_path);
 
@@ -381,7 +381,7 @@ pub fn config_from_clarinet_manifest_path(manifest_path: &str) -> (ProtocolObser
         });
     }
 
-    let clarion_manifest = ProtocolObserverConfig {
+    let orchestra_manifest = ProtocolObserverConfig {
         identifier: ProtocolObserverId(1),
         project: ProjectMetadata {
             name: "counter".into(),
@@ -393,7 +393,7 @@ pub fn config_from_clarinet_manifest_path(manifest_path: &str) -> (ProtocolObser
         lambdas: vec![],
         contracts: observed_contracts,
     };
-    (clarion_manifest, session_settings)
+    (orchestra_manifest, session_settings)
 }
 
 
@@ -525,8 +525,8 @@ fn get_stacks_chain_tip(known_tip: Option<&BlockIdentifier>) -> Option<StacksBlo
 
 
 pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Receiver<FrontendCommand>) {
-    use clarion_lib::actors::{ClarionSupervisorMessage};
-    use clarion_lib::clarinet_lib::types::StacksBlockMetadata;
+    use orchestra_lib::actors::{OrchestraSupervisorMessage};
+    use orchestra_lib::clarinet_lib::types::StacksBlockMetadata;
 
     let (supervisor_tx, supervisor_rx) = channel();
 
@@ -578,7 +578,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                 }
                                 // Build a temporary block that the registration can rely on for the ProtocolRegistration.
                                 // Local only
-                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
+                                frontend_commands_supervisor_tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
                                     block_identifier: block_identifier(0),
                                     parent_block_identifier: block_identifier(0),
                                     timestamp: 0,
@@ -591,10 +591,10 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                     }
                                 }))).unwrap();
     
-                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::RegisterProtocolObserver(config)).unwrap();
+                                frontend_commands_supervisor_tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(config)).unwrap();
                                 
                                 let (tx, rx) = channel();
-                                frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
+                                frontend_commands_supervisor_tx.send(OrchestraSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
                                 let response = rx.recv().unwrap();
     
                                 NetworkResponse::BootNetwork(BootNetworkUpdate {
@@ -611,7 +611,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                         }
                         NetworkRequest::StateExplorerInitialization(state_init) => {
                             let (tx, rx) = channel();
-                            frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
+                            frontend_commands_supervisor_tx.send(OrchestraSupervisorMessage::GetProtocolInterfaces(ProtocolObserverId(state.protocol_id), tx)).unwrap();
                             let response = rx.recv().unwrap();
 
                             NetworkResponse::StateExplorerInitialization(StateExplorerInitializationUpdate {
@@ -635,7 +635,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
                                     // Get the latest blocks
                                     // Get the latest values
                                     let (tx, rx) = channel();
-                                    frontend_commands_supervisor_tx.send(ClarionSupervisorMessage::GetFieldValues(FieldValuesRequest {
+                                    frontend_commands_supervisor_tx.send(OrchestraSupervisorMessage::GetFieldValues(FieldValuesRequest {
                                         protocol_id: state.protocol_id,
                                         tx,
                                         contract_identifier: field.contract_identifier.clone(),
@@ -671,7 +671,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
         }
     });
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
+    supervisor_tx.send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(1),
         parent_block_identifier: block_identifier(0),
         timestamp: 0,
@@ -682,7 +682,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
     let delay = time::Duration::from_millis(10000);
     thread::sleep(delay);
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
+    supervisor_tx.send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(BitcoinChainEvent::ChainUpdatedWithBlock(BitcoinBlockData {
         block_identifier: block_identifier(2),
         parent_block_identifier: block_identifier(1),
         timestamp: 0,
@@ -890,7 +890,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
 
     let mut block_index = 1;
 
-    supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
+    supervisor_tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
         block_identifier: block_identifier(block_index),
         parent_block_identifier: block_identifier(0),
         timestamp: 0,
@@ -909,7 +909,7 @@ pub fn mock_backend(backend_cmd_tx: Sender<BackendCommand>, frontend_cmd_rx: Rec
 
         block_index += 1;
 
-        supervisor_tx.send(ClarionSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
+        supervisor_tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
             block_identifier: block_identifier(block_index),
             parent_block_identifier: block_identifier(block_index - 1),
             timestamp: 0,

@@ -7,11 +7,11 @@ use clarinet_lib::types::{AccountIdentifier, BlockIdentifier, TransactionIdentif
 use clarinet_lib::types::events::{StacksTransactionEvent};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct ClarionPid(pub u64);
+pub struct OrchestraPid(pub u64);
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TriggerId {
-    pub pid: ClarionPid,
+    pub pid: OrchestraPid,
     pub lambda_id: u64,
 }
 

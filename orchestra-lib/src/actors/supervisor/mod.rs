@@ -14,7 +14,7 @@ use opentelemetry::trace::{Tracer};
 use super::contract_processor::{ContractProcessorEvent, ContractProcessorPort};
 
 #[derive(Clone, Debug)]
-pub enum ClarionSupervisorMessage {
+pub enum OrchestraSupervisorMessage {
     RegisterProtocolObserver(ProtocolObserverConfig),
     GetProtocolInterfaces(ProtocolObserverId, Sender<ProtocolRegistration>),
     ProcessStacksChainEvent(StacksChainEvent),
@@ -24,7 +24,7 @@ pub enum ClarionSupervisorMessage {
 }
 
 #[derive(ComponentDefinition)]
-pub struct ClarionSupervisor {
+pub struct OrchestraSupervisor {
     ctx: ComponentContext<Self>,
     active_contracts_processors: HashMap<String, ActorRef<ContractProcessorMessage>>,
     active_protocol_observers: HashMap<ProtocolObserverId, ActorRef<ProtocolObserverMessage>>,
@@ -40,12 +40,12 @@ pub struct ClarionSupervisor {
 
 // ignore_indications!(SetOffset, DynamicManager);
 // ignore_indications!(SetScale, DynamicManager);
-// ignore_lifecycle!(ClarionSupervisor);
+// ignore_lifecycle!(OrchestraSupervisor);
 
-impl ComponentLifecycle for ClarionSupervisor {
+impl ComponentLifecycle for OrchestraSupervisor {
 
     fn on_start(&mut self) -> Handled {
-        info!(self.log(), "ClarionSupervisor starting");
+        info!(self.log(), "OrchestraSupervisor starting");
 
         // Ensure that we have access to storage by opening early connections
         match self.storage_driver {
@@ -68,32 +68,32 @@ impl ComponentLifecycle for ClarionSupervisor {
     }
 }
 
-impl Actor for ClarionSupervisor {
-    type Message = ClarionSupervisorMessage;
+impl Actor for OrchestraSupervisor {
+    type Message = OrchestraSupervisorMessage;
 
-    fn receive_local(&mut self, msg: ClarionSupervisorMessage) -> Handled {
+    fn receive_local(&mut self, msg: OrchestraSupervisorMessage) -> Handled {
 
          let tracer = opentelemetry_jaeger::new_pipeline()
-            .with_service_name("ClarionSupervisor")
+            .with_service_name("OrchestraSupervisor")
             .install_simple().unwrap();
 
         let mut span = match msg {
-            ClarionSupervisorMessage::RegisterProtocolObserver(manifest) => {
+            OrchestraSupervisorMessage::RegisterProtocolObserver(manifest) => {
                 let mut span = tracer.start("register_contracts_observer");
                 self.register_contracts_observer(manifest);
                 span
             }
-            ClarionSupervisorMessage::ProcessStacksChainEvent(event) => {
+            OrchestraSupervisorMessage::ProcessStacksChainEvent(event) => {
                 let mut span = tracer.start("handle_stacks_chain_event");
                 self.handle_stacks_chain_event(event, &mut span);
                 span
             }
-            ClarionSupervisorMessage::ProcessBitcoinChainEvent(event) => {
+            OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event) => {
                 let mut span = tracer.start("handle_bitcoin_chain_event");
                 self.handle_bitcoin_chain_event(event);
                 span
             }
-            ClarionSupervisorMessage::GetProtocolInterfaces(protocol_id, tx) => {
+            OrchestraSupervisorMessage::GetProtocolInterfaces(protocol_id, tx) => {
                 let mut span = tracer.start("register_local_contracts_observer");
                 let worker = match self.active_protocol_observers.get(&protocol_id) {
                     Some(entry) => entry,
@@ -102,7 +102,7 @@ impl Actor for ClarionSupervisor {
                 let res = worker.tell(ProtocolObserverMessage::GetInterfaces(tx));
                 span
             }
-            ClarionSupervisorMessage::GetFieldValues(request) => {
+            OrchestraSupervisorMessage::GetFieldValues(request) => {
                 let mut span = tracer.start("handle_request_field_value");
                 info!(self.ctx.log(), "Contracts observers registered: {:?}", self.active_protocol_observers);
 
@@ -113,7 +113,7 @@ impl Actor for ClarionSupervisor {
                 let res = worker.tell(ProtocolObserverMessage::RequestFieldValues(request));
                 span
             }
-            ClarionSupervisorMessage::Exit => {
+            OrchestraSupervisorMessage::Exit => {
                 let mut span = tracer.start("exit");
                 self.ctx.system().shutdown_async();
                 span
@@ -129,7 +129,7 @@ impl Actor for ClarionSupervisor {
     }
 }
 
-impl Require<ContractProcessorPort> for ClarionSupervisor {
+impl Require<ContractProcessorPort> for OrchestraSupervisor {
 
     fn handle(&mut self, event: ContractProcessorEvent) -> Handled {
         match event {
@@ -155,7 +155,7 @@ impl Require<ContractProcessorPort> for ClarionSupervisor {
     }
 }
 
-impl ClarionSupervisor {
+impl OrchestraSupervisor {
     pub fn new(storage_driver: StorageDriver) -> Self {
         global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
         Self {
@@ -394,7 +394,7 @@ impl ClarionSupervisor {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{ClarionPid, StacksChainPredicates, TriggerId};
+    use crate::types::{OrchestraPid, StacksChainPredicates, TriggerId};
     use std::collections::HashSet;
     
     // #[test]
@@ -403,11 +403,11 @@ mod tests {
     //     let mut predicates = StacksChainPredicates::new();
     //     let contract_id: String = "STX.contract_id".into();
     //     let mut triggers = HashSet::new();
-    //     let trigger_101 = TriggerId { pid: ClarionPid(1), lambda_id: 1 };
+    //     let trigger_101 = TriggerId { pid: OrchestraPid(1), lambda_id: 1 };
     //     triggers.insert(trigger_101.clone());
     //     predicates.watching_contract_id_activity.insert(contract_id.clone(), triggers);
 
-    //     let mut supervisor = ClarionSupervisor::new();
+    //     let mut supervisor = OrchestraSupervisor::new();
     //     supervisor.register_predicates(predicates);
 
     //     let block = block_with_transactions(vec![

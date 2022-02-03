@@ -23,7 +23,7 @@ impl StorageDriver {
 
     pub fn tmpfs() -> StorageDriver {
         let mut working_dir = std::env::temp_dir();
-        working_dir.push("clarion");
+        working_dir.push("orchestra");
         StorageDriver::Filesystem(FilesystemConfig {
             working_dir
         })

@@ -1,10 +1,10 @@
 {
 	"folders": [
 		{
-			"path": "clarion-app"
+			"path": "orchestra-app"
 		},
 		{
-			"path": "clarion-lib"
+			"path": "orchestra-lib"
 		}
 	],
 	"settings": {}
