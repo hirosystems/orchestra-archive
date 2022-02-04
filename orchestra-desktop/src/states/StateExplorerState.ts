@@ -34,6 +34,30 @@ export const stateExplorerSlice = createSlice({
   name: "stateExplorer",
   initialState,
   reducers: {
+    activateDefaultField: (
+      state: StateExplorerState,
+    ) => {
+      for (let contractIdentifier of state.contractsIdentifiers) {
+        let contract = state.contracts[contractIdentifier];
+        if (contract.variables.length > 0) {
+          state.activeFieldIdentifier = `${contractIdentifier}::${contract.variables[0].name}`;
+          state.activeContractIdentifier = contractIdentifier;
+          break;
+        } else if (contract.maps.length > 0) {
+          state.activeFieldIdentifier = `${contractIdentifier}::${contract.maps[0].name}`;
+          state.activeContractIdentifier = contractIdentifier;
+          break;
+        } else if (contract.fungible_tokens.length > 0) {
+          state.activeFieldIdentifier = `${contractIdentifier}::${contract.fungible_tokens[0].name}`;
+          state.activeContractIdentifier = contractIdentifier;
+          break;
+        } else if (contract.non_fungible_tokens.length > 0) {
+          state.activeFieldIdentifier = `${contractIdentifier}::${contract.non_fungible_tokens[0].name}`;
+          state.activeContractIdentifier = contractIdentifier;
+          break;
+        }
+      }
+    },
     activateField: (
       state: StateExplorerState,
       action: PayloadAction<ContractFieldTarget>
@@ -103,7 +127,7 @@ function isEnabled(map: { [fieldIdentifier: string]: boolean }, fieldIdentifier?
   return fieldIdentifier !== undefined && map[fieldIdentifier] !== undefined &&  map[fieldIdentifier] === true;
 }
 
-export const { activateField, updateContracts, updateField, toggleBookmark, toggleNotification } = stateExplorerSlice.actions;
+export const { activateDefaultField, activateField, updateContracts, updateField, toggleBookmark, toggleNotification } = stateExplorerSlice.actions;
 
 export const selectContracts = (state: RootState) =>
   state.stateExplorer.contracts;

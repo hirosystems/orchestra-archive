@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="364px" height="482px" viewBox="0 0 364 482" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 63.1 (92452) - https://sketch.com -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <filter x="-10.3%" y="-7.6%" width="120.6%" height="115.3%" filterUnits="objectBoundingBox" id="filter-1">
+            <feOffset dx="0" dy="6" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="6" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.323563156 0" type="matrix" in="shadowBlurOuter1" result="shadowMatrixOuter1"></feColorMatrix>
+            <feMerge>
+                <feMergeNode in="shadowMatrixOuter1"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+        </filter>
+        <path d="M220,0 L340,120 L340,416 C340,439.195959 321.195959,458 298,458 L42,458 C18.8040405,458 0,439.195959 0,416 L0,42 C0,18.8040405 18.8040405,0 42,0 L220,0 Z" id="path-2"></path>
+        <path d="M219.967223,2.84217094e-14 L318.577089,2.84217094e-14 C341.773049,2.84217094e-14 339.967223,9.6319951 339.967223,32.8279546 L339.967223,120.000093 L219.967223,2.84217094e-14 Z" id="path-4"></path>
+        <filter x="-6.7%" y="-16.7%" width="126.7%" height="123.3%" filterUnits="objectBoundingBox" id="filter-5">
+            <feOffset dx="10" dy="-6" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="3" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.183784965 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <circle id="path-6" cx="74.7252747" cy="74.7252747" r="74.7252747"></circle>
+        <mask id="mask-7" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="149.450549" height="149.450549" fill="white">
+            <use xlink:href="#path-6"></use>
+        </mask>
+        <mask id="mask-9" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="149.450549" height="149.450549" fill="white">
+            <use xlink:href="#path-6"></use>
+        </mask>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(12.000000, 6.000000)">
+            <g id="files-icon-other" filter="url(#filter-1)">
+                <g id="Main">
+                    <mask id="mask-3" fill="white">
+                        <use xlink:href="#path-2"></use>
+                    </mask>
+                    <use id="Mask" fill="#EDEDED" xlink:href="#path-2"></use>
+                </g>
+                <g id="Corner" opacity="0.4" transform="translate(279.983611, 60.000047) scale(-1, -1) translate(-279.983611, -60.000047) ">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-5)" xlink:href="#path-4"></use>
+                    <use fill-opacity="0.4" fill="#FFFFFF" fill-rule="evenodd" xlink:href="#path-4"></use>
+                </g>
+            </g>
+            <rect id="Rectangle" stroke="#41A0F4" stroke-width="5.86080586" x="72.9304029" y="131.930403" width="194.139194" height="194.139194" rx="63.003663"></rect>
+            <g id="Group-Copy" transform="translate(95.000000, 154.000000)">
+                <mask id="mask-8" fill="white">
+                    <use xlink:href="#path-6"></use>
+                </mask>
+                <g id="Oval" stroke="#326EE5" mask="url(#mask-7)" stroke-width="5.86080586" stroke-dasharray="8.79120922088623,5.128204822540283">
+                    <use mask="url(#mask-9)" xlink:href="#path-6"></use>
+                </g>
+                <circle id="Oval" stroke="#FFFFFF" stroke-width="379.120879" mask="url(#mask-8)" cx="74.7252747" cy="74.7252747" r="1"></circle>
+            </g>
+            <path d="M226,207.464407 L192.52227,207.464407 L216.03198,172 L198.258865,172 L169.952787,214.782687 L141.741135,172 L123.96802,172 L147.47773,207.464407 L114,207.464407 L114,221.162338 L226,221.162338 L226,207.464407 Z M191.863707,249.27104 L215.655889,285 L197.881967,285 L169.952787,243.020595 L142.023607,285 L124.344111,285 L148.136293,249.364686 L114,249.364686 L114,235.837662 L226,235.837662 L226,249.27104 L191.863707,249.27104 Z" id="Shape" fill="#316CE4"></path>
+            <line x1="95.75" y1="132.219955" x2="95.25" y2="325.780045" id="Line-2" stroke="#3984EC" stroke-width="2.93040293" stroke-linecap="square" stroke-dasharray="7.32600736618042"></line>
+            <line x1="73.223356" y1="154.5" x2="269.664966" y2="154.75" id="Line-2" stroke="#3984EC" stroke-width="2.93040293" stroke-linecap="square" stroke-dasharray="7.32600736618042"></line>
+            <line x1="72.2222222" y1="303.25" x2="267.666667" y2="303.375" id="Line-2" stroke="#3984EC" stroke-width="2.93040293" stroke-linecap="square" stroke-dasharray="7.32600736618042"></line>
+            <line x1="243.75" y1="134.217687" x2="243.25" y2="325.782313" id="Line-2" stroke="#3984EC" stroke-width="2.93040293" stroke-linecap="square" stroke-dasharray="7.32600736618042"></line>
+            <text id="System-Generated---For-Reference-Only" font-family="HelveticaNeue, Helvetica Neue" font-size="50" font-weight="normal" fill="#000000" fill-opacity="0.5">
+                <tspan x="50.075" y="411">CLARINET</tspan>
+            </text>
+        </g>
+    </g>
+</svg>

@@ -111,6 +111,7 @@ pub struct BootNetworkUpdate {
   protocol_deployed: bool,
   contracts: Vec<Contract>,
   protocol_id: u64,
+  protocol_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -198,12 +199,14 @@ pub fn run_backend(
                   .expect("Unable to run supervisor");
               });
 
+              let protocol_name = config.project.name.clone();
               let mut update = BootNetworkUpdate {
                 status: "Booting network".to_string(),
                 bitcoin_chain_height: 1,
                 stacks_chain_height: 1,
                 protocol_deployed: false,
                 protocol_id: 1,
+                protocol_name,
                 contracts,
               };
               backend_cmd_tx
@@ -455,9 +458,7 @@ pub fn run_frontend(
       }
 
       // Let's add an additional header to our response to the client.
-      let headers = response.headers_mut();
-      headers.append("MyCustomHeader", ":)".parse().unwrap());
-
+      let _headers = response.headers_mut();
       Ok(response)
     };
     let mut websocket = accept_hdr(stream, callback).unwrap();
@@ -580,7 +581,13 @@ pub fn mock_backend(
     let mut ack = 1;
     let mut network_booted = false;
     loop {
-      let cmd = frontend_cmd_rx.recv().unwrap();
+      let cmd = match frontend_cmd_rx.recv() {
+        Ok(cmd) => cmd,
+        Err(e) => {
+          println!("Error: {:?}", e);
+          continue;
+        }
+      };
       match cmd {
         FrontendCommand::PollState(state) => {
           let update = match state.request {
@@ -641,6 +648,7 @@ pub fn mock_backend(
                   ))
                   .unwrap();
 
+                let protocol_name = config.project.name.clone();
                 frontend_commands_supervisor_tx
                   .send(OrchestraSupervisorMessage::RegisterProtocolObserver(config))
                   .unwrap();
@@ -655,12 +663,13 @@ pub fn mock_backend(
                 let response = rx.recv().unwrap();
 
                 NetworkResponse::BootNetwork(BootNetworkUpdate {
-                  status: "Network booting".to_string(),
+                  status: "".to_string(),
                   bitcoin_chain_height: 0,
                   stacks_chain_height: 0,
                   protocol_deployed: true,
                   contracts: response.contracts,
                   protocol_id: 1,
+                  protocol_name,
                 })
               } else {
                 NetworkResponse::Noop(NoopUpdate {})

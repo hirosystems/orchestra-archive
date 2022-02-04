@@ -40,6 +40,7 @@ export interface BootNetworkData {
   protocol_deployed: boolean,
   contracts: Array<Contract>,
   protocol_id: number,
+  protocol_name: string,
 }
 
 export enum StateExplorerState {
@@ -211,6 +212,10 @@ export const networkingSlice = createSlice({
       state: NetworkingState,
       action: PayloadAction<string>
     ) => {
+      if (state.manifestFileWatched !== undefined) {
+        return;
+      }
+
       if (state.bootNetworkStatus === undefined) {
         state.fieldIdentifierWatched = undefined;
         state.nextRequest = undefined;
@@ -342,7 +347,13 @@ export const {
 } = networkingSlice.actions;
 
 export const selectNetworkBookStatus = (state: RootState) =>
-  state.networking.bootNetworkStatus === undefined ? "?" : state.networking.bootNetworkStatus.status ;
+  state.networking.bootNetworkStatus === undefined ? "?" : state.networking.bootNetworkStatus.status
+
+export const selectManifestFileWatched = (state: RootState) =>
+  state.networking.manifestFileWatched
+
+export const selectProtocolName = (state: RootState) => 
+ state.networking.bootNetworkStatus === undefined ? "Loading" :  state.networking.bootNetworkStatus.protocol_name
 
 export const selectIsNetworkBooting = (state: RootState) =>
   isNetworkReady(state.networking.bootNetworkStatus) === false

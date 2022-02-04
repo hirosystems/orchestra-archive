@@ -1,8 +1,9 @@
-import { Timeline, Box } from '@primer/react'
+import { Timeline, Box, Spinner } from '@primer/react'
 import styled from "styled-components"
 import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
 import { selectNetworkBookStatus, StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
-import { useRootSelector } from "../../hooks/useRootSelector";
+import { activateDefaultField } from '../../states/StateExplorerState';
+import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
 
 
 export const Container = styled.div`
@@ -10,11 +11,16 @@ export const Container = styled.div`
 
 const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
     let networkStatus = useRootSelector(selectNetworkBookStatus);
+    let dispatch = useRootDispatch();
+    
+    if (networkStatus === undefined) {
+        return (<div>
+            <Spinner size="large" />
+        </div>)
+    }
 
     if (props.field === undefined) {
-        return (<div>
-            {networkStatus}
-        </div>)
+        return (<Label name="Explore the state of your contracts by navigating the data fields"/>);
     }
  
     let title = props.field.field_name;
