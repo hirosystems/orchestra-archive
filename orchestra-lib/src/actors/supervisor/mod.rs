@@ -88,7 +88,7 @@ impl Actor for OrchestraSupervisor {
         let mut span = match msg {
             OrchestraSupervisorMessage::RegisterProtocolObserver(manifest) => {
                 let mut span = tracer.start("register_contracts_observer");
-                self.register_contracts_observer(manifest);
+                self.register_protocol_observer(manifest);
                 span
             }
             OrchestraSupervisorMessage::ProcessStacksChainEvent(event) => {
@@ -186,7 +186,7 @@ impl OrchestraSupervisor {
         }
     }
 
-    pub fn register_contracts_observer(&mut self, observer_config: ProtocolObserverConfig) {
+    pub fn register_protocol_observer(&mut self, observer_config: ProtocolObserverConfig) {
         let protocol_identifier = &observer_config.identifier;
 
         if self
@@ -195,8 +195,6 @@ impl OrchestraSupervisor {
         {
             // todo: or maybe reboot process instead?
             return;
-        } else {
-            self.start_contracts_observer(&observer_config);
         }
 
         for (contract_id, settings) in observer_config.contracts.iter() {
@@ -226,6 +224,7 @@ impl OrchestraSupervisor {
                 }
             };
         }
+        self.start_protocol_observer(&observer_config);
     }
 
     pub fn start_contract_processor(&mut self, contract_id: String) {
@@ -238,7 +237,7 @@ impl OrchestraSupervisor {
             .insert(contract_id, worker.actor_ref());
     }
 
-    pub fn start_contracts_observer(&mut self, observer_config: &ProtocolObserverConfig) {
+    pub fn start_protocol_observer(&mut self, observer_config: &ProtocolObserverConfig) {
         let system = self.ctx.system();
         let worker = system
             .create(|| ProtocolObserver::new(self.storage_driver.clone(), observer_config.clone()));

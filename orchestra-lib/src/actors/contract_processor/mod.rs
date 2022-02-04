@@ -130,7 +130,9 @@ impl ContractProcessor {
                     }
                     queue.push_back(contract_id.to_string());
                 } else {
-                    dependencies.insert(contract_id.to_string(), vec![]);
+                    if !dependencies.contains_key(&contract_id) {
+                        dependencies.insert(contract_id.to_string(), vec![]);
+                    }
                 }
             }
             (contracts, dependencies)

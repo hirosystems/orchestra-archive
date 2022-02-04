@@ -2,20 +2,17 @@ import { Timeline, Box, Spinner } from '@primer/react'
 import styled from "styled-components"
 import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
 import { selectNetworkBookStatus, StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
-import { activateDefaultField } from '../../states/StateExplorerState';
-import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
-
+import { useRootSelector } from "../../hooks/useRootSelector";
 
 export const Container = styled.div`
 `
 
 const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
     let networkStatus = useRootSelector(selectNetworkBookStatus);
-    let dispatch = useRootDispatch();
     
     if (networkStatus === undefined) {
         return (<div>
-            <Spinner size="large" />
+            <Spinner size="medium" />
         </div>)
     }
 

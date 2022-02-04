@@ -347,7 +347,7 @@ export const {
 } = networkingSlice.actions;
 
 export const selectNetworkBookStatus = (state: RootState) =>
-  state.networking.bootNetworkStatus === undefined ? "?" : state.networking.bootNetworkStatus.status
+  state.networking.bootNetworkStatus === undefined ? undefined : state.networking.bootNetworkStatus.contracts.length === 0 ? undefined : state.networking.bootNetworkStatus.status
 
 export const selectManifestFileWatched = (state: RootState) =>
   state.networking.manifestFileWatched
