@@ -349,7 +349,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(
 
   let manifest_path = PathBuf::from(manifest_path);
 
-  let (session_settings, _) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+  let (session_settings, _, project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
 
   let mut session = Session::new(session_settings.clone());
   let analysis = match session.start() {
@@ -388,7 +388,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(
   let orchestra_manifest = ProtocolObserverConfig {
     identifier: ProtocolObserverId(1),
     project: ProjectMetadata {
-      name: "counter".into(),
+      name: project_config.project.name,
       authors: vec![],
       homepage: "".into(),
       license: "".into(),
@@ -408,7 +408,7 @@ pub fn config_from_clarinet_manifest_path(
 
   let manifest_path = PathBuf::from(manifest_path);
 
-  let (session_settings, _) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+  let (session_settings, _, project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
 
   let mut observed_contracts = BTreeMap::new();
   for contract in session_settings.initial_contracts.iter() {
@@ -431,7 +431,7 @@ pub fn config_from_clarinet_manifest_path(
   let orchestra_manifest = ProtocolObserverConfig {
     identifier: ProtocolObserverId(1),
     project: ProjectMetadata {
-      name: "counter".into(),
+      name: project_config.project.name.clone(),
       authors: vec![],
       homepage: "".into(),
       license: "".into(),
