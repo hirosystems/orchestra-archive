@@ -8,16 +8,9 @@ export const Container = styled.div`
 `
 
 const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
-    let networkStatus = useRootSelector(selectNetworkBookStatus);
     
-    if (networkStatus === undefined) {
-        return (<div>
-            <Spinner size="medium" />
-        </div>)
-    }
-
     if (props.field === undefined) {
-        return (<Label name="Explore the state of your contracts by navigating the data fields"/>);
+        return (<div/>);
     }
  
     let title = props.field.field_name;

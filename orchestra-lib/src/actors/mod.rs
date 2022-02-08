@@ -70,6 +70,7 @@ mod test {
     use opentelemetry::trace::{Span, SpanContext, StatusCode};
     use opentelemetry::KeyValue;
     use std::collections::HashSet;
+    use std::path::PathBuf;
     use std::time::SystemTime;
 
     #[derive(Debug)]
@@ -229,6 +230,7 @@ mod test {
             },
             lambdas: vec![],
             contracts,
+            manifest_path: PathBuf::new(),
         };
 
         let block = block_with_transactions(vec![transaction_contract_deployment(

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, createContext, ReactChild } from "react";
 import { updateContracts, updateField } from "../states/StateExplorerState";
 import { useInterval } from '../hooks';
-import { selectNextRequest, StateExplorerStateUpdate, updateBootSequence, updateBlockIdentifierForContractField, buildNextRequest } from '../states/NetworkingState';
+import { selectNextRequest, StateExplorerStateUpdate, updateBootSequence, updateBlockIdentifierForContractField, buildNextRequest, updateProtocolData } from '../states/NetworkingState';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { Contract } from "../types";
 import { appendBitcoinBlocks, appendStacksBlocks } from "../states/BlocksExplorerState";
@@ -30,11 +30,14 @@ const NetworkingProvider = (props: ISocketProvider) => {
 
     const onMessage = useCallback((message) => {
         const data: StateExplorerStateUpdate = JSON.parse(message?.data);
-        if ('BootNetwork' in data.update) {
-            let payload = {...data.update.BootNetwork};
+        if ('OpenProtocol' in data.update) {
+            let payload = {...data.update.OpenProtocol};
             if (payload.contracts.length > 0) {
                 dispatch(updateContracts(payload.contracts));
             }
+            dispatch(updateProtocolData(payload));
+        } else if ('BootNetwork' in data.update) {
+            let payload = {...data.update.BootNetwork};
             dispatch(updateBootSequence(payload));
         } else if ('StateExplorerWatch' in data.update) {
             let payload = {...data.update.StateExplorerWatch};

@@ -10,10 +10,11 @@ export enum ActiveFeature {
 export type StateExplorerStateUpdateWatch = Record<"StateExplorerWatch", StateExplorerStateUpdateWatchData>
 export type StateExplorerStateUpdateInit = Record<"StateExplorerInitialization", StateExplorerStateUpdateInitData>
 export type BootNetwork = Record<"BootNetwork", BootNetworkData>
+export type OpenProtocol = Record<"OpenProtocol", ProtocolData>
 
 
 export interface StateExplorerStateUpdate {
-  update: StateExplorerStateUpdateWatch | StateExplorerStateUpdateInit | BootNetwork;
+  update: StateExplorerStateUpdateWatch | StateExplorerStateUpdateInit | BootNetwork | OpenProtocol;
 }
 
 export interface StateExplorerStateUpdateInitData {
@@ -40,6 +41,11 @@ export interface BootNetworkData {
   protocol_deployed: boolean,
   contracts: Array<Contract>,
   protocol_id: number,
+  protocol_name: string,
+}
+
+export interface ProtocolData {
+  contracts: Array<Contract>,
   protocol_name: string,
 }
 
@@ -191,7 +197,9 @@ export interface RequestQueue {
 
 export interface NetworkingState {
   manifestFileWatched?: string;
+  protocolData?: ProtocolData;
   bootNetworkStatus?: BootNetworkData;
+  devnetStarted: boolean;
   protocolIdentifierWatched?: number;
   fieldIdentifierWatched?: [[string, string], BlockIdentifier];
   latestBlockIdentifierKnownByFieldIdentifier: { [fieldIdentifier: string]: BlockIdentifier };
@@ -202,6 +210,7 @@ export interface NetworkingState {
 const initialState: NetworkingState = {
   latestBlockIdentifierKnownByFieldIdentifier: {},
   requestNonce: 0,
+  devnetStarted: false,
 };
 
 export const networkingSlice = createSlice({
@@ -221,6 +230,20 @@ export const networkingSlice = createSlice({
         state.nextRequest = undefined;
         state.protocolIdentifierWatched = undefined;
         state.manifestFileWatched = action.payload;  
+      }
+    },
+    bootNetwork: (
+      state: NetworkingState,
+      action: PayloadAction
+    ) => {
+      state.devnetStarted = true;
+    },
+    updateProtocolData: (
+      state: NetworkingState,
+      action: PayloadAction<ProtocolData>
+    ) => {
+      if (state.protocolData === undefined) {
+        state.protocolData = action.payload;
       }
     },
     updateBootSequence: (
@@ -276,6 +299,23 @@ export const networkingSlice = createSlice({
       action: PayloadAction<number>
     ) => {
       if (state.manifestFileWatched === undefined) {
+        state.nextRequest = undefined;
+        return;
+      }
+
+      if (state.protocolData === undefined) {
+        state.nextRequest = {
+          protocol_id: 1,
+          request: {
+            "OpenProtocol": {
+              manifest_path: state.manifestFileWatched
+            }
+          },
+        };
+        return;
+      }
+
+      if (state.devnetStarted === false) {
         state.nextRequest = undefined;
         return;
       }
@@ -341,8 +381,10 @@ function isNetworkReady(bootNetworkStatus?: BootNetworkData): boolean {
 export const {
   watchContractField,
   updateBlockIdentifierForContractField,
+  updateProtocolData,
   updateBootSequence,
   buildNextRequest,
+  bootNetwork,
   initiateBootSequence,
 } = networkingSlice.actions;
 
@@ -352,8 +394,14 @@ export const selectNetworkBookStatus = (state: RootState) =>
 export const selectManifestFileWatched = (state: RootState) =>
   state.networking.manifestFileWatched
 
+export const selectNetworkBooted = (state: RootState) =>
+  state.networking.devnetStarted
+
+export const selectProtocolData = (state: RootState) => 
+ state.networking.protocolData
+
 export const selectProtocolName = (state: RootState) => 
- state.networking.bootNetworkStatus === undefined ? "Loading" :  state.networking.bootNetworkStatus.protocol_name
+ state.networking.protocolData === undefined ? "Loading" :  state.networking.protocolData.protocol_name
 
 export const selectIsNetworkBooting = (state: RootState) =>
   isNetworkReady(state.networking.bootNetworkStatus) === false

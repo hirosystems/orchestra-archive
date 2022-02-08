@@ -3,8 +3,9 @@ import { useRootSelector, useRootDispatch } from "./hooks/useRootSelector";
 import styled from "styled-components";
 import StateExplorer from './pages/StateExplorer'
 import SelectManifest from './pages/SelectManifest'
+import LoadingProtocol from './pages/LoadingProtocol'
 import { Chain } from './components/Chain';
-import { initiateBootSequence, selectManifestFileWatched, selectProtocolName } from './states/NetworkingState';
+import { initiateBootSequence, selectManifestFileWatched, selectNetworkBooted, selectProtocolData, selectProtocolName } from './states/NetworkingState';
 import { listen } from '@tauri-apps/api/event'
 
 export const Header = styled.div`
@@ -54,26 +55,34 @@ export const ProtocolName = styled.div`
 
 function Content() {
     const manifestFile = useRootSelector(selectManifestFileWatched);
+    const protocolData = useRootSelector(selectProtocolData);
+
     const protocolName = useRootSelector(selectProtocolName);
 
     let dispatch = useRootDispatch();
 
-
     let subDom = (<SelectManifest data-tauri-drag-region></SelectManifest>);
     if (manifestFile !== undefined) {
-        subDom = (
-            <div>
-                <Header data-tauri-drag-region>
-                    <ProtocolOverview data-tauri-drag-region>
-                        <ProtocolName data-tauri-drag-region>{protocolName}</ProtocolName>
-                        <ProtocolLegend data-tauri-drag-region>Protocol</ProtocolLegend>
-                        {/* <HiroIcon/> */}
-                    </ProtocolOverview>
-                    <Chain />
-                </Header>
-                <StateExplorer />
-            </div>
-        );
+        if (protocolData === undefined) {
+            subDom = (
+                <div>
+                    <LoadingProtocol data-tauri-drag-region></LoadingProtocol>
+                </div>
+            );
+        } else {
+            subDom = (
+                <div>
+                    <Header data-tauri-drag-region>
+                        <ProtocolOverview data-tauri-drag-region>
+                            <ProtocolName data-tauri-drag-region>{protocolName}</ProtocolName>
+                            <ProtocolLegend data-tauri-drag-region>Protocol</ProtocolLegend>
+                        </ProtocolOverview>
+                        <Chain />
+                    </Header>
+                    <StateExplorer />
+                </div>
+            );    
+        }
     } else {
         listen('tauri://file-drop', (event: any) => {
             let manifestPath = event.payload[0];

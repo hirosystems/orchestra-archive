@@ -1,8 +1,12 @@
 
 import styled from "styled-components";
-import { useRootSelector } from "../../hooks/useRootSelector";
+import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
 import { getBitcoinChainTip, getStacksChainTip } from "../../states/BlocksExplorerState";
+import { selectNetworkBooted, bootNetwork } from "../../states/NetworkingState";
 import { Block } from './Block';
+import { StyledOcticon } from "@primer/react";
+import { ZapIcon, PlayIcon } from "@primer/octicons-react";
+import { MouseEvent } from 'react';
 
 export const ChainOverview = styled.div`
 padding-top: 18px;
@@ -13,12 +17,14 @@ cursor: default;
 `
 
 export const ChainBackground = styled.div`
-background-color: #F0F8FF; // rgb(247, 246, 243);
+background-color: rgba(0, 0, 0, 0.8); // rgb(247, 246, 243);
 height: 100%;
-padding-right: 8px;
-border-radius: 4px;
+padding-right: 16px;
+padding-left: 16px;
+border-radius: 8px;
 display: flex;
 flex-flow: row wrap;
+min-width: 744px;
 `
 
 export const Blocks = styled.div`
@@ -34,6 +40,7 @@ height: 64px;
 `
 
 export const ChainBar = styled.div`
+
 `
 
 export const ChainTopControls = styled.div`
@@ -45,6 +52,14 @@ justify-content: space-between;
 `
 
 export const ChainLeftInfo = styled.div`
+`
+
+export const StartNetwork = styled.div`
+width: 100%;
+height: 100%;
+display: flex;
+justify-content: center;
+padding-top: 8px;
 `
 
 export const ChainCenterInfo = styled.div`
@@ -64,36 +79,48 @@ export const ChainPicker = styled.div`
     -ms-user-select: none;
     user-select: none;
     cursor: default;
-    color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgb(9, 105, 218)" : "rgba(9, 105, 218, 0.4)"};
+    color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgb(255, 255, 255)" : "rgba(255, 255, 255, 0.4)"};
     &:hover {
-        color: rgb(55, 53, 47);
+        color: rgb(255, 255, 255);
     }
 `
 
-// backgroundColor = "rgb(221, 244, 255)"
-// color = "rgb(9, 105, 218)"
-
-
 const Chain = () => {
-
+    
+    const networkBooted = useRootSelector(selectNetworkBooted);
     const stacksChainTip = useRootSelector(getStacksChainTip);
-    let blocks = [];
+    let dispatch = useRootDispatch();
 
-    let knownChainTipHeight = stacksChainTip ? stacksChainTip.metadata.pox_cycle_position : 0;
-    for (let i = 0; i < 10; i++) {
-        let isKnown = i <= knownChainTipHeight;
-        blocks.push(
-            <Block key={i} blockHeight={i} isKnown={isKnown}/>
-        )
+    function handleBootNetwork(event: MouseEvent) {
+        event.preventDefault();
+        dispatch(bootNetwork());
     }
 
-    let poxCycle = stacksChainTip ? stacksChainTip.metadata.pox_cycle_index : 0;
-
-    return (
-        <ChainOverview data-tauri-drag-region>
-            {/* <HiroIcon/> */}
+    let content = undefined;
+    if (!networkBooted) {
+        content = (
             <ChainBackground data-tauri-drag-region>
-                <ChainControl></ChainControl>
+                <StartNetwork >
+                    <div onClick={handleBootNetwork}>
+                        <StyledOcticon icon={PlayIcon} size={48} sx={{mr: 2, color: 'white'}} />
+                    </div>
+                </StartNetwork>
+            </ChainBackground>
+        )
+    } else {
+        let blocks = [];
+
+        let knownChainTipHeight = stacksChainTip ? stacksChainTip.metadata.pox_cycle_position : 0;
+        for (let i = 0; i < 10; i++) {
+            let isKnown = i <= knownChainTipHeight;
+            blocks.push(
+                <Block key={i} blockHeight={i} isKnown={isKnown}/>
+            )
+        }
+    
+        let poxCycle = stacksChainTip ? stacksChainTip.metadata.pox_cycle_index : 0;    
+        content = (
+            <ChainBackground data-tauri-drag-region>
                 <ChainBar>
                     <ChainTopControls>
                         <ChainLeftInfo>
@@ -110,6 +137,12 @@ const Chain = () => {
                     </Blocks>
                 </ChainBar>
             </ChainBackground>
+        )
+    }
+
+    return (
+        <ChainOverview data-tauri-drag-region>
+            {content}
         </ChainOverview>);
 };
 

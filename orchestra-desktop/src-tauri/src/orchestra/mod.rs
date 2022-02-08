@@ -45,6 +45,7 @@ pub struct PollState {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum NetworkRequest {
+  OpenProtocol(StateExplorerInitialization),
   BootNetwork(StateExplorerInitialization),
   StateExplorerInitialization(StateExplorerInitialization),
   StateExplorerWatch(StateExplorerWatch),
@@ -93,6 +94,7 @@ pub struct WalletData {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum NetworkResponse {
+  OpenProtocol(OpenProtocolUpdate),
   BootNetwork(BootNetworkUpdate),
   StateExplorerInitialization(StateExplorerInitializationUpdate),
   StateExplorerSync(StateExplorerSyncUpdate),
@@ -102,6 +104,12 @@ pub enum NetworkResponse {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct NoopUpdate {}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct OpenProtocolUpdate {
+  contracts: Vec<Contract>,
+  protocol_name: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BootNetworkUpdate {
@@ -168,115 +176,135 @@ pub fn run_backend(
   let mut protocol_observer_config = None;
   let mut supervisor_tx = None;
   let mut ack = 1;
+  let mut network_booted = false;
   loop {
     let cmd = frontend_cmd_rx.recv().unwrap();
     match cmd {
       FrontendCommand::PollState(state) => {
         let update = match state.request {
-          NetworkRequest::BootNetwork(state) => {
+          NetworkRequest::OpenProtocol(state) => {
             if protocol_observer_config.is_none() {
               let (config, contracts) =
                 config_and_interface_from_clarinet_manifest_path(&state.manifest_path);
 
-              let (log_tx, log_rx) = channel();
-              let manifest_path = PathBuf::from(&state.manifest_path);
-              let devnet = DevnetOrchestrator::new(manifest_path, None);
-
-              let (devnet_events_rx, terminator_tx) =
-                match integrate::run_devnet(devnet, Some(log_tx), false) {
-                  Ok((Some(devnet_events_rx), Some(terminator_tx))) => {
-                    (devnet_events_rx, terminator_tx)
-                  }
-                  _ => std::process::exit(1),
-                };
-
-              let (tx, supervisor_rx) = channel();
-
-              std::thread::spawn(|| {
-                let storage_driver = StorageDriver::tmpfs();
-                println!("Working dir: {:?}", storage_driver);
-                actors::run_supervisor(storage_driver, supervisor_rx)
-                  .expect("Unable to run supervisor");
-              });
-
               let protocol_name = config.project.name.clone();
-              let mut update = BootNetworkUpdate {
-                status: "Booting network".to_string(),
-                bitcoin_chain_height: 1,
-                stacks_chain_height: 1,
-                protocol_deployed: false,
-                protocol_id: 1,
+              let update = OpenProtocolUpdate {
                 protocol_name,
                 contracts,
               };
-              backend_cmd_tx
-                .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
-                  update.clone(),
-                )))
-                .unwrap();
 
-              loop {
-                let event = devnet_events_rx.recv().unwrap();
-                match event {
-                  DevnetEvent::BitcoinChainEvent(event) => {
-                    if let BitcoinChainEvent::ChainUpdatedWithBlock(block) = event {
-                      update.bitcoin_chain_height = block.block_identifier.index;
-                    }
-                  }
-                  DevnetEvent::StacksChainEvent(event) => {
-                    if let StacksChainEvent::ChainUpdatedWithBlock(block) = event {
-                      update.stacks_chain_height = block.block_identifier.index;
-                    }
-                  }
-                  DevnetEvent::ProtocolDeployed => {
-                    update.protocol_deployed = true;
-                  }
-                  DevnetEvent::Log(log) => {
-                    update.status = log.message;
-                  }
-                  _ => {}
-                }
-
-                if update.protocol_deployed {
-                  break;
-                } else {
-                  backend_cmd_tx
-                    .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
-                      update.clone(),
-                    )))
-                    .unwrap();
-                }
-              }
-
-              tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(
-                config.clone(),
-              ))
-              .unwrap();
-
-              let supervisor_tx_relayer = tx.clone();
-
-              supervisor_tx = Some(tx);
               protocol_observer_config = Some(config);
 
-              std::thread::spawn(move || loop {
-                let event = devnet_events_rx.recv().unwrap();
-                match event {
-                  DevnetEvent::BitcoinChainEvent(event) => {
-                    supervisor_tx_relayer
-                      .send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event))
-                      .unwrap();
-                  }
-                  DevnetEvent::StacksChainEvent(event) => {
-                    supervisor_tx_relayer
-                      .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event))
-                      .unwrap();
-                  }
-                  _ => {}
-                }
-              });
-
-              NetworkResponse::BootNetwork(update)
+              NetworkResponse::OpenProtocol(update)
             } else {
+              NetworkResponse::Noop(NoopUpdate {})
+            }
+          }
+          NetworkRequest::BootNetwork(_state) => {
+            if !network_booted {
+              network_booted = true;
+              if let Some(ref config) = protocol_observer_config {
+                let (log_tx, log_rx) = channel();
+                let manifest_path = config.manifest_path.clone();
+                let devnet = DevnetOrchestrator::new(manifest_path, None);
+  
+                let (devnet_events_rx, terminator_tx) =
+                  match integrate::run_devnet(devnet, Some(log_tx), false) {
+                    Ok((Some(devnet_events_rx), Some(terminator_tx))) => {
+                      (devnet_events_rx, terminator_tx)
+                    }
+                    _ => std::process::exit(1),
+                  };
+  
+                let (tx, supervisor_rx) = channel();
+  
+                std::thread::spawn(|| {
+                  let storage_driver = StorageDriver::tmpfs();
+                  println!("Working dir: {:?}", storage_driver);
+                  actors::run_supervisor(storage_driver, supervisor_rx)
+                    .expect("Unable to run supervisor");
+                });
+  
+                let protocol_name = config.project.name.clone();
+                let mut update = BootNetworkUpdate {
+                  status: "Booting network".to_string(),
+                  bitcoin_chain_height: 1,
+                  stacks_chain_height: 1,
+                  protocol_deployed: false,
+                  protocol_id: 1,
+                  protocol_name,
+                  contracts: vec![],
+                };
+                backend_cmd_tx
+                  .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
+                    update.clone(),
+                  )))
+                  .unwrap();
+  
+                loop {
+                  let event = devnet_events_rx.recv().unwrap();
+                  match event {
+                    DevnetEvent::BitcoinChainEvent(event) => {
+                      if let BitcoinChainEvent::ChainUpdatedWithBlock(block) = event {
+                        update.bitcoin_chain_height = block.block_identifier.index;
+                      }
+                    }
+                    DevnetEvent::StacksChainEvent(event) => {
+                      if let StacksChainEvent::ChainUpdatedWithBlock(block) = event {
+                        update.stacks_chain_height = block.block_identifier.index;
+                      }
+                    }
+                    DevnetEvent::ProtocolDeployed => {
+                      update.protocol_deployed = true;
+                    }
+                    DevnetEvent::Log(log) => {
+                      update.status = log.message;
+                    }
+                    _ => {}
+                  }
+  
+                  if update.protocol_deployed {
+                    break;
+                  } else {
+                    backend_cmd_tx
+                      .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
+                        update.clone(),
+                      )))
+                      .unwrap();
+                  }
+                }
+  
+                tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(
+                  config.clone(),
+                ))
+                .unwrap();
+  
+                let supervisor_tx_relayer = tx.clone();
+  
+                supervisor_tx = Some(tx);
+  
+                std::thread::spawn(move || loop {
+                  let event = devnet_events_rx.recv().unwrap();
+                  match event {
+                    DevnetEvent::BitcoinChainEvent(event) => {
+                      supervisor_tx_relayer
+                        .send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event))
+                        .unwrap();
+                    }
+                    DevnetEvent::StacksChainEvent(event) => {
+                      supervisor_tx_relayer
+                        .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event))
+                        .unwrap();
+                    }
+                    _ => {}
+                  }
+                });
+  
+                NetworkResponse::BootNetwork(update)
+              } else {
+                NetworkResponse::Noop(NoopUpdate {})
+              } 
+            } else { 
               NetworkResponse::Noop(NoopUpdate {})
             }
           }
@@ -394,6 +422,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(
     },
     lambdas: vec![],
     contracts: observed_contracts,
+    manifest_path,
   };
   (orchestra_manifest, interfaces)
 }
@@ -430,13 +459,14 @@ pub fn config_from_clarinet_manifest_path(
     identifier: ProtocolObserverId(1),
     project: ProjectMetadata {
       name: project_config.project.name.clone(),
-      authors: vec![],
+      authors: project_config.project.authors.clone(),
       homepage: "".into(),
       license: "".into(),
-      description: "".into(),
+      description: project_config.project.description.clone(),
     },
     lambdas: vec![],
     contracts: observed_contracts,
+    manifest_path: manifest_path,
   };
   (orchestra_manifest, session_settings)
 }
@@ -578,6 +608,8 @@ pub fn mock_backend(
   std::thread::spawn(move || {
     let mut ack = 1;
     let mut network_booted = false;
+    let mut protocol_observer_config = None;
+
     loop {
       let cmd = match frontend_cmd_rx.recv() {
         Ok(cmd) => cmd,
@@ -589,6 +621,24 @@ pub fn mock_backend(
       match cmd {
         FrontendCommand::PollState(state) => {
           let update = match state.request {
+            NetworkRequest::OpenProtocol(state) => {
+              if protocol_observer_config.is_none() {
+                let (config, contracts) =
+                  config_and_interface_from_clarinet_manifest_path(&state.manifest_path);
+  
+                let protocol_name = config.project.name.clone();
+                let update = OpenProtocolUpdate {
+                  protocol_name,
+                  contracts,
+                };
+  
+                protocol_observer_config = Some(config);
+  
+                NetworkResponse::OpenProtocol(update)
+              } else {
+                NetworkResponse::Noop(NoopUpdate {})
+              }
+            }  
             NetworkRequest::BootNetwork(boot_state) => {
               if !network_booted {
                 network_booted = true;

@@ -8,6 +8,7 @@ use clarinet_lib::types::{
     AccountIdentifier, BitcoinBlockData, BlockIdentifier, StacksBlockData, TransactionIdentifier,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -28,6 +29,7 @@ pub struct ProtocolObserverConfig {
     pub project: ProjectMetadata,
     pub lambdas: Vec<Lambda>,
     pub contracts: BTreeMap<QualifiedContractIdentifier, ContractSettings>,
+    pub manifest_path: PathBuf,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
