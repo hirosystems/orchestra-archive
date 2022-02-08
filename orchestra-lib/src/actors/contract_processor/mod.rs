@@ -112,6 +112,7 @@ impl ContractProcessor {
                             .detect_dependencies(
                                 contract_id.to_string(),
                                 contract_instance.code.clone(),
+                                2,
                             )
                             .expect("Unable to retrieve contract dependencies");
 
@@ -155,19 +156,20 @@ impl ContractProcessor {
             // Extract the AST, and try to move to the next contract if we throw an error:
             // we're trying to get as many errors as possible
             let contract_identifier = QualifiedContractIdentifier::parse(&contract_id).unwrap();
-            let mut ast = match incremental_session.interpreter.build_ast(
+            let (mut ast, mut diags, success) = incremental_session.interpreter.build_ast(
                 contract_identifier.clone(),
                 contract_instanciation.code.clone(),
-            ) {
-                Ok(ast) => ast,
-                Err((_, Some(diagnostic), _)) => {
-                    diagnostics.push(diagnostic);
-                    continue;
-                }
-                _ => {
-                    continue;
-                }
-            };
+                2,
+            );
+            
+            if !success {
+                diagnostics.append(&mut diags);
+                warn!(
+                    self.log(),
+                    "Errors {:?}", diagnostics
+                );            
+                continue;
+            }
 
             // Run the analysis, and try to move to the next contract if we throw an error:
             // we're trying to get as many errors as possible
@@ -183,6 +185,10 @@ impl ContractProcessor {
                 Ok(analysis) => analysis,
                 Err((_, Some(diagnostic), _)) => {
                     diagnostics.push(diagnostic);
+                    warn!(
+                        self.log(),
+                        "Errors {:?}", diagnostics
+                    );            
                     continue;
                 }
                 _ => {

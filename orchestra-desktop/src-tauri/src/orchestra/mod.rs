@@ -365,8 +365,6 @@ pub fn config_and_interface_from_clarinet_manifest_path(
     })
     .collect::<_>();
 
-  println!("{:?}", interfaces);
-
   let mut observed_contracts = BTreeMap::new();
   for contract in session_settings.initial_contracts.iter() {
     let contract_id = QualifiedContractIdentifier::parse(&format!(
