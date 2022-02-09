@@ -245,12 +245,20 @@ pub fn run_backend(
                   let event = devnet_events_rx.recv().unwrap();
                   match event {
                     DevnetEvent::BitcoinChainEvent(event) => {
+                      tx
+                        .send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event.clone()))
+                        .unwrap();
+
                       if let BitcoinChainEvent::ChainUpdatedWithBlock(block) = event {
                         update.bitcoin_chain_height = block.block_identifier.index;
                       }
                     }
                     DevnetEvent::StacksChainEvent(event) => {
-                      if let StacksChainEvent::ChainUpdatedWithBlock(block) = event {
+                      tx
+                        .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event.clone()))
+                        .unwrap();
+
+                        if let StacksChainEvent::ChainUpdatedWithBlock(block) = event {
                         update.stacks_chain_height = block.block_identifier.index;
                       }
                     }
@@ -345,8 +353,8 @@ pub fn run_backend(
                 let response = rx.recv().unwrap();
 
                 NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
-                  stacks_blocks: vec![],
-                  bitcoin_blocks: vec![],
+                  stacks_blocks: response.stacks_blocks,
+                  bitcoin_blocks: response.bitcoin_blocks,
                   contract_identifier: response.contract_identifier.clone(),
                   field_name: response.field_name.clone(),
                   field_values: response.values.clone(),

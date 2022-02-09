@@ -147,7 +147,7 @@ impl Actor for BlockStoreManager {
 
         match msg {
             BlockStoreManagerMessage::ArchiveBitcoinBlock(block) => {
-                info!(self.log(), "BlockStoreManager will archive bitcoin block");
+                info!(self.log(), "BlockStoreManager will archive bitcoin block {}", block.block_identifier.index);
                 self.store_bitcoin_block(block);
             }
             BlockStoreManagerMessage::RollbackBitcoinBlocks(block_ids) => {
@@ -155,7 +155,7 @@ impl Actor for BlockStoreManager {
                 self.delete_bitcoin_blocks(block_ids);
             }
             BlockStoreManagerMessage::ArchiveStacksBlock(block) => {
-                info!(self.log(), "BlockStoreManager will archive stacks block");
+                info!(self.log(), "BlockStoreManager will archive stacks block {}", block.block_identifier.index);
                 self.store_stacks_block(block);
             }
             BlockStoreManagerMessage::RollbackStacksBlocks(block_ids) => {

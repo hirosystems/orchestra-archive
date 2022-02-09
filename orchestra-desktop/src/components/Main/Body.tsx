@@ -1,7 +1,7 @@
 import { Timeline, Box, Spinner } from '@primer/react'
 import styled from "styled-components"
 import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEvent, MapEvent, NftEvent, FtEvent, Controls } from '.';
-import { selectNetworkBookStatus, StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
+import { selectNetworkBootStatus, StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
 import { useRootSelector } from "../../hooks/useRootSelector";
 
 export const Container = styled.div`

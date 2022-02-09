@@ -250,9 +250,7 @@ export const networkingSlice = createSlice({
       state: NetworkingState,
       action: PayloadAction<BootNetworkData>
     ) => {
-      if (state.bootNetworkStatus === undefined) {
-        state.bootNetworkStatus = action.payload;
-      }
+      state.bootNetworkStatus = action.payload;
       if (action.payload.protocol_deployed === true) {
         state.protocolIdentifierWatched = action.payload.protocol_id;
       }
@@ -286,9 +284,9 @@ export const networkingSlice = createSlice({
       let fieldIdentifier = `${action.payload.contract_identifier}::${action.payload.field_name}`;
       let latestKnownBlock = state.latestBlockIdentifierKnownByFieldIdentifier[fieldIdentifier];
       if (latestKnownBlock === undefined) {
-        // Starting with block 1 by default?
+        // Starting with block 2 (post-genesis) by default?
         latestKnownBlock = {
-          index: 1,
+          index: 2,
           hash: "",
         };
       }
@@ -388,8 +386,12 @@ export const {
   initiateBootSequence,
 } = networkingSlice.actions;
 
-export const selectNetworkBookStatus = (state: RootState) =>
-  state.networking.bootNetworkStatus === undefined ? undefined : state.networking.bootNetworkStatus.contracts.length === 0 ? undefined : state.networking.bootNetworkStatus.status
+export const selectNetworkBootStatus = (state: RootState) =>
+  state.networking.bootNetworkStatus === undefined ? undefined : state.networking.bootNetworkStatus.protocol_deployed ? undefined : state.networking.bootNetworkStatus.status
+
+export const selectIsNetworkHealthy = (state: RootState) =>
+  state.networking.bootNetworkStatus === undefined ? false : state.networking.bootNetworkStatus.protocol_deployed
+
 
 export const selectManifestFileWatched = (state: RootState) =>
   state.networking.manifestFileWatched

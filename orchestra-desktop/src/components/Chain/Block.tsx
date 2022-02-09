@@ -5,16 +5,13 @@ export const Container = styled.div`
 width: 64px;
 height: 24px;
 border-radius: 4px;
-// border: 1px ${(props: { isKnown: boolean }) => props.isKnown ? "solid #AAAAAA" : "dashed #AAAAAA"};
 border: 1px ${(props: { isKnown: boolean }) => props.isKnown ? "solid rgba(255, 255, 255, 0.25)" : "dashed rgba(255, 255, 255, 0.25)"};
 padding: 2px;
 `
 
 export const Inner = styled.div`
-// background-color: ${(props: { isKnown: boolean }) => props.isKnown ? "rgba(0, 0, 0, 0.20)" : "rgba(0, 0, 0, 0.1)"};
 background-color: ${(props: { isKnown: boolean }) => props.isKnown ? "rgba(255, 255, 255, 0.5)" : "rgba(255, 255, 255, 0.05)"};
-// color: ${(props: { isKnown: boolean }) => props.isKnown ? "#FFFFFF" : "#AAAAAA"};
-color: ${(props: { isKnown: boolean }) => props.isKnown ? "#FFFFFF" : "#AAAAAA"};
+color: ${(props: { isKnown: boolean }) => props.isKnown ? "#FFFFFF" : "rgba(255, 255, 255, 0.5)"};
 border-radius: 2px;
 text-transform: uppercase;
 font-size: 10px;
