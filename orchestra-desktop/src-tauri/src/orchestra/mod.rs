@@ -24,7 +24,8 @@ use orchestra_lib::clarinet_lib::types::events::{
 use orchestra_lib::clarinet_lib::types::{
   BitcoinBlockData, BitcoinBlockMetadata, BitcoinChainEvent, BlockIdentifier, StacksBlockData,
   StacksChainEvent, StacksContractDeploymentData, StacksTransactionData, StacksTransactionKind,
-  StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier,
+  StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier, DevnetConfigFile,
+  ChainUpdatedWithBlockData,
 };
 use orchestra_lib::types::{
   Contract, FieldValues, FieldValuesRequest, ProtocolObserverConfig, ProtocolObserverId,
@@ -206,7 +207,12 @@ pub fn run_backend(
               if let Some(ref config) = protocol_observer_config {
                 let (log_tx, log_rx) = channel();
                 let manifest_path = config.manifest_path.clone();
-                let devnet = DevnetOrchestrator::new(manifest_path, None);
+                let mut overrides = DevnetConfigFile::default();
+                overrides.disable_bitcoin_explorer = Some(true);
+                overrides.disable_stacks_api = Some(true);
+                overrides.disable_stacks_explorer = Some(true);
+                overrides.stacks_node_image_url = Some("quay.io/hirosystems/stacks-node:devnet-beta".to_string());
+                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));
   
                 let (devnet_events_rx, terminator_tx) =
                   match integrate::run_devnet(devnet, Some(log_tx), false) {
@@ -258,8 +264,8 @@ pub fn run_backend(
                         .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event.clone()))
                         .unwrap();
 
-                        if let StacksChainEvent::ChainUpdatedWithBlock(block) = event {
-                        update.stacks_chain_height = block.block_identifier.index;
+                      if let StacksChainEvent::ChainUpdatedWithBlock(event) = event {
+                        update.stacks_chain_height = event.new_block.block_identifier.index;
                       }
                     }
                     DevnetEvent::ProtocolDeployed => {
@@ -385,7 +391,12 @@ pub fn config_and_interface_from_clarinet_manifest_path(
 
   let manifest_path = PathBuf::from(manifest_path);
 
-  let (session_settings, _, project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+  let (mut session_settings, _, mut project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+
+  // todo(ludo)
+  session_settings.include_boot_contracts = vec![
+    "costs-v2".to_string(),
+  ];
 
   let mut session = Session::new(session_settings.clone());
   let analysis = match session.start() {
@@ -687,19 +698,24 @@ pub fn mock_backend(
                 }
                 // Build a temporary block that the registration can rely on for the ProtocolRegistration.
                 // Local only
+                let new_block = StacksBlockData {
+                  block_identifier: block_identifier(0),
+                  parent_block_identifier: block_identifier(0),
+                  timestamp: 0,
+                  transactions,
+                  metadata: StacksBlockMetadata {
+                    bitcoin_anchor_block_identifier: block_identifier(1),
+                    pox_cycle_index: 0,
+                    pox_cycle_position: 0,
+                    pox_cycle_length: 0,
+                  },
+                };
                 frontend_commands_supervisor_tx
                   .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(
-                    StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-                      block_identifier: block_identifier(0),
-                      parent_block_identifier: block_identifier(0),
-                      timestamp: 0,
-                      transactions,
-                      metadata: StacksBlockMetadata {
-                        bitcoin_anchor_block_identifier: block_identifier(1),
-                        pox_cycle_index: 0,
-                        pox_cycle_position: 0,
-                        pox_cycle_length: 0,
-                      },
+                    StacksChainEvent::ChainUpdatedWithBlock(ChainUpdatedWithBlockData {
+                      new_block: new_block.clone(),
+                      anchored_trail: None,
+                      confirmed_block: (new_block, None),
                     }),
                   ))
                   .unwrap();
@@ -717,6 +733,29 @@ pub fn mock_backend(
                   ))
                   .unwrap();
                 let response = rx.recv().unwrap();
+
+                let new_block = StacksBlockData {
+                  block_identifier: block_identifier(1),
+                  parent_block_identifier: block_identifier(0),
+                  timestamp: 0,
+                  transactions: vec![mock_transaction(&response.contracts[0].contract_identifier)],
+                  metadata: StacksBlockMetadata {
+                    bitcoin_anchor_block_identifier: block_identifier(1),
+                    pox_cycle_index: 0,
+                    pox_cycle_position: 0,
+                    pox_cycle_length: 0,
+                  },
+                };
+                frontend_commands_supervisor_tx
+                  .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(
+                    StacksChainEvent::ChainUpdatedWithBlock(ChainUpdatedWithBlockData {
+                      new_block: new_block.clone(),
+                      anchored_trail: None,
+                      confirmed_block: (new_block, None),
+                    }),
+                  ))
+                  .unwrap();
+
 
                 NetworkResponse::BootNetwork(BootNetworkUpdate {
                   status: "".to_string(),
@@ -829,216 +868,27 @@ pub fn mock_backend(
   let delay = time::Duration::from_millis(10000);
   thread::sleep(delay);
 
-  let counter_contract = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.counter";
-  let mut mutated_contracts_radius = HashSet::new();
-  mutated_contracts_radius.insert(counter_contract.into());
-  let mut transactions = vec![];
-  transactions.push(StacksTransactionData {
-        transaction_identifier: TransactionIdentifier { hash: "0".into() },
-        operations: vec![],
-        metadata: StacksTransactionMetadata {
-            success: true,
-            description: "".into(),
-            sponsor: None,
-            raw_tx: "".into(),
-            result: "(ok true)".into(),
-            sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-            fee: 1,
-            kind: StacksTransactionKind::ContractCall,
-            execution_cost: None,
-            receipt: StacksTransactionReceipt {
-                mutated_contracts_radius: mutated_contracts_radius,
-                mutated_assets_radius: HashSet::new(),
-                events: vec![
-                    StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
-                        contract_identifier: counter_contract.into(),
-                        var: "counter".into(),
-                        new_value: "u101".into(),
-                        hex_new_value: "0100000000000000000000000000000065".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        inserted_key: "1".into(),
-                        inserted_value: "u1000000".into(),
-                        hex_inserted_key: "0100000000000000000000000000000001".into(),
-                        hex_inserted_value: "01000000000000000000000000000f4240".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        inserted_key: "3".into(),
-                        inserted_value: "u1000000".into(),
-                        hex_inserted_key: "0100000000000000000000000000000003".into(),
-                        hex_inserted_value: "01000000000000000000000000000f4240".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        inserted_key: "2".into(),
-                        inserted_value: "u2000000".into(),
-                        hex_inserted_key: "0100000000000000000000000000000002".into(),
-                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
-                    }),
-                    StacksTransactionEvent::DataMapUpdateEvent(DataMapUpdateEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        key: "3".into(),
-                        new_value: "u2000000".into(),
-                        hex_key: "0100000000000000000000000000000002".into(),
-                        hex_new_value: "01000000000000000000000000002e8480".into(),
-                    }),
-                    StacksTransactionEvent::DataMapDeleteEvent(DataMapDeleteEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        deleted_key: "2".into(),
-                        hex_deleted_key: "0100000000000000000000000000000002".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        inserted_key: "3".into(),
-                        inserted_value: "3000000".into(),
-                        hex_inserted_key: "0100000000000000000000000000000003".into(),
-                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "simple-kv".into(),
-                        inserted_key: "4".into(),
-                        inserted_value: "4000000".into(),
-                        hex_inserted_key: "0100000000000000000000000000000004".into(),
-                        hex_inserted_value: "01000000000000000000000000001e8480".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "multi-kv".into(),
-                        inserted_key: "(tuple (key1 u11) (key2 u12))".into(),
-                        inserted_value: "(tuple (value1 u1001) (value2 u1002) (value3 u1003))".into(),
-                        hex_inserted_key: "0c00000002046b657931010000000000000000000000000000000b046b657932010000000000000000000000000000000c".into(),
-                        hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000003e90676616c75653201000000000000000000000000000003ea0676616c75653301000000000000000000000000000003eb".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "multi-kv".into(),
-                        inserted_key: "(tuple (key1 u21) (key2 u22))".into(),
-                        inserted_value: "(tuple (value1 u2001) (value2 u2002) (value3 u2003))".into(),
-                        hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000015046b6579320100000000000000000000000000000016".into(),
-                        hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000007d10676616c75653201000000000000000000000000000007d20676616c75653301000000000000000000000000000007d3".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "multi-kv".into(),
-                        inserted_key: "(tuple (key1 u31) (key2 u32))".into(),
-                        inserted_value: "(tuple (value1 u3001) (value2 u3002) (value3 u3003))".into(),
-                        hex_inserted_key: "0c00000002046b657931010000000000000000000000000000001f046b6579320100000000000000000000000000000020".into(),
-                        hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000bb90676616c7565320100000000000000000000000000000bba0676616c7565330100000000000000000000000000000bbb".into(),
-                    }),
-                    StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
-                        contract_identifier: counter_contract.into(),
-                        map: "multi-kv".into(),
-                        inserted_key: "(tuple (key1 u41) (key2 u42))".into(),
-                        inserted_value: "(tuple (value1 u4001) (value2 u4002) (value3 u4003))".into(),
-                        hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000029046b657932010000000000000000000000000000002a".into(),
-                        hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000fa10676616c7565320100000000000000000000000000000fa20676616c7565330100000000000000000000000000000fa3".into(),
-                    }),
-                    StacksTransactionEvent::FTMintEvent(FTMintEventData {
-                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        amount: "15000".into(),
-                    }),
-                    StacksTransactionEvent::FTMintEvent(FTMintEventData {
-                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
-                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        amount: "40000".into(),
-                    }),
-                    StacksTransactionEvent::FTTransferEvent(FTTransferEventData {
-                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
-                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        amount: "4000".into(),
-                    }),
-                    StacksTransactionEvent::FTBurnEvent(FTBurnEventData {
-                        asset_class_identifier: format!("{}::token-name", counter_contract.to_string()),
-                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        amount: "1".into(),
-                    }),
-                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
-                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "u25000".into(),
-                        hex_asset_identifier: "01000000000000000000000000000061a8".into(), // 25000
-                    }),
-                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
-                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
-                        recipient: "ST2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGN".into(),
-                        asset_identifier: "u25001".into(),
-                        hex_asset_identifier: "01000000000000000000000000000061a9".into(), // 25001
-                    }),
-                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
-                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
-                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "u80000".into(),
-                        hex_asset_identifier: "0100000000000000000000000000013880".into(), // u80000
-                    }),
-                    StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
-                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
-                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "u8000".into(),
-                        hex_asset_identifier: "0100000000000000000000000000001f40".into(), // u8000
-                    }),
-                    StacksTransactionEvent::NFTBurnEvent(NFTBurnEventData {
-                        asset_class_identifier: format!("{}::nft-name", counter_contract.to_string()),
-                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "u25001".into(),
-                        hex_asset_identifier: "01000000000000000000000000000061a9".into(),
-                    }),
-                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
-                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "{ id: u1, name: 'ludovic.id' }".into(),
-                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000001046e616d650d0000000a6c75646f7669632e6964".into(), // { id: u1, name: "ludovic.id" }
-                    }),
-                    StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
-                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
-                        recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
-                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // { id: u2, name: "ludovic.btc" }
-                    }),
-                    StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
-                        asset_class_identifier: format!("{}::domain", counter_contract.to_string()),
-                        recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
-                        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                        asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
-                        hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // u8000
-                    }),
+  let mut block_index = 2;
 
-                ],
-            }
-        }
-    });
-
-  // DataVarSetEvent(DataVarSetEventData),
-  // DataMapInsertEvent(DataMapInsertEventData),
-  // DataMapUpdateEvent(DataMapUpdateEventData),
-  // DataMapDeleteEvent(DataMapDeleteEventData),
-
-  let mut block_index = 1;
+  let new_block = StacksBlockData {
+    block_identifier: block_identifier(block_index),
+    parent_block_identifier: block_identifier(block_index - 1),
+    timestamp: 0,
+    transactions: vec![],
+    metadata: StacksBlockMetadata {
+      bitcoin_anchor_block_identifier: block_identifier(1),
+      pox_cycle_index: 0,
+      pox_cycle_position: 0,
+      pox_cycle_length: 10,
+    },
+  };
 
   supervisor_tx
     .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(
-      StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-        block_identifier: block_identifier(block_index),
-        parent_block_identifier: block_identifier(0),
-        timestamp: 0,
-        transactions: transactions,
-        metadata: StacksBlockMetadata {
-          bitcoin_anchor_block_identifier: block_identifier(1),
-          pox_cycle_index: 0,
-          pox_cycle_position: 0,
-          pox_cycle_length: 10,
-        },
+      StacksChainEvent::ChainUpdatedWithBlock(ChainUpdatedWithBlockData {
+        new_block: new_block.clone(),
+        anchored_trail: None,
+        confirmed_block: (new_block, None),
       }),
     ))
     .unwrap();
@@ -1048,23 +898,29 @@ pub fn mock_backend(
   loop {
     block_index += 1;
 
+    let new_block = StacksBlockData {
+      block_identifier: block_identifier(block_index),
+      parent_block_identifier: block_identifier(block_index - 1),
+      timestamp: 0,
+      transactions: vec![],
+      metadata: StacksBlockMetadata {
+        bitcoin_anchor_block_identifier: block_identifier(block_index),
+        pox_cycle_index: pox_cycle_index,
+        pox_cycle_position: block_cycle_position,
+        pox_cycle_length: 10,
+      },
+    };
+
     supervisor_tx
       .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(
-        StacksChainEvent::ChainUpdatedWithBlock(StacksBlockData {
-          block_identifier: block_identifier(block_index),
-          parent_block_identifier: block_identifier(block_index - 1),
-          timestamp: 0,
-          transactions: vec![],
-          metadata: StacksBlockMetadata {
-            bitcoin_anchor_block_identifier: block_identifier(block_index),
-            pox_cycle_index: pox_cycle_index,
-            pox_cycle_position: block_cycle_position,
-            pox_cycle_length: 10,
-          },
+        StacksChainEvent::ChainUpdatedWithBlock(ChainUpdatedWithBlockData {
+          new_block: new_block.clone(),
+          anchored_trail: None,
+          confirmed_block: (new_block, None),
         }),
       ))
       .unwrap();
-
+  
     let delay = time::Duration::from_millis(10000);
 
     thread::sleep(delay);
@@ -1075,4 +931,173 @@ pub fn mock_backend(
       pox_cycle_index += 1;
     }
   }
+}
+
+pub fn mock_transaction(contract: &str) -> StacksTransactionData {
+
+  let mut mutated_contracts_radius = HashSet::new();
+  mutated_contracts_radius.insert(contract.into());
+
+  StacksTransactionData {
+    transaction_identifier: TransactionIdentifier { hash: "0".into() },
+    operations: vec![],
+    metadata: StacksTransactionMetadata {
+        success: true,
+        description: "".into(),
+        sponsor: None,
+        raw_tx: "".into(),
+        result: "(ok true)".into(),
+        sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+        fee: 1,
+        kind: StacksTransactionKind::ContractCall,
+        execution_cost: None,
+        receipt: StacksTransactionReceipt {
+            mutated_contracts_radius: mutated_contracts_radius,
+            mutated_assets_radius: HashSet::new(),
+            events: vec![
+                StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
+                    contract_identifier: contract.into(),
+                    var: "counter".into(),
+                    hex_new_value: "0100000000000000000000000000000065".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_inserted_key: "0100000000000000000000000000000001".into(),
+                    hex_inserted_value: "01000000000000000000000000000f4240".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_inserted_key: "0100000000000000000000000000000003".into(),
+                    hex_inserted_value: "01000000000000000000000000000f4240".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_inserted_key: "0100000000000000000000000000000002".into(),
+                    hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                }),
+                StacksTransactionEvent::DataMapUpdateEvent(DataMapUpdateEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_key: "0100000000000000000000000000000002".into(),
+                    hex_new_value: "01000000000000000000000000002e8480".into(),
+                }),
+                StacksTransactionEvent::DataMapDeleteEvent(DataMapDeleteEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_deleted_key: "0100000000000000000000000000000002".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_inserted_key: "0100000000000000000000000000000003".into(),
+                    hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "simple-kv".into(),
+                    hex_inserted_key: "0100000000000000000000000000000004".into(),
+                    hex_inserted_value: "01000000000000000000000000001e8480".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "multi-kv".into(),
+                    hex_inserted_key: "0c00000002046b657931010000000000000000000000000000000b046b657932010000000000000000000000000000000c".into(),
+                    hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000003e90676616c75653201000000000000000000000000000003ea0676616c75653301000000000000000000000000000003eb".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "multi-kv".into(),
+                    hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000015046b6579320100000000000000000000000000000016".into(),
+                    hex_inserted_value: "0c000000030676616c75653101000000000000000000000000000007d10676616c75653201000000000000000000000000000007d20676616c75653301000000000000000000000000000007d3".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "multi-kv".into(),
+                    hex_inserted_key: "0c00000002046b657931010000000000000000000000000000001f046b6579320100000000000000000000000000000020".into(),
+                    hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000bb90676616c7565320100000000000000000000000000000bba0676616c7565330100000000000000000000000000000bbb".into(),
+                }),
+                StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
+                    contract_identifier: contract.into(),
+                    map: "multi-kv".into(),
+                    hex_inserted_key: "0c00000002046b6579310100000000000000000000000000000029046b657932010000000000000000000000000000002a".into(),
+                    hex_inserted_value: "0c000000030676616c7565310100000000000000000000000000000fa10676616c7565320100000000000000000000000000000fa20676616c7565330100000000000000000000000000000fa3".into(),
+                }),
+                StacksTransactionEvent::FTMintEvent(FTMintEventData {
+                    asset_class_identifier: format!("{}::token-name", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    amount: "15000".into(),
+                }),
+                StacksTransactionEvent::FTMintEvent(FTMintEventData {
+                    asset_class_identifier: format!("{}::token-name", contract.to_string()),
+                    recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    amount: "40000".into(),
+                }),
+                StacksTransactionEvent::FTTransferEvent(FTTransferEventData {
+                    asset_class_identifier: format!("{}::token-name", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                    sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    amount: "4000".into(),
+                }),
+                StacksTransactionEvent::FTBurnEvent(FTBurnEventData {
+                    asset_class_identifier: format!("{}::token-name", contract.to_string()),
+                    sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    amount: "1".into(),
+                }),
+                StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                    asset_class_identifier: format!("{}::nft-name", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "u25000".into(),
+                    hex_asset_identifier: "01000000000000000000000000000061a8".into(), // 25000
+                }),
+                StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                    asset_class_identifier: format!("{}::nft-name", contract.to_string()),
+                    recipient: "ST2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGN".into(),
+                    asset_identifier: "u25001".into(),
+                    hex_asset_identifier: "01000000000000000000000000000061a9".into(), // 25001
+                }),
+                StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                    asset_class_identifier: format!("{}::nft-name", contract.to_string()),
+                    recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "u80000".into(),
+                    hex_asset_identifier: "0100000000000000000000000000013880".into(), // u80000
+                }),
+                StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
+                    asset_class_identifier: format!("{}::nft-name", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                    sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "u8000".into(),
+                    hex_asset_identifier: "0100000000000000000000000000001f40".into(), // u8000
+                }),
+                StacksTransactionEvent::NFTBurnEvent(NFTBurnEventData {
+                    asset_class_identifier: format!("{}::nft-name", contract.to_string()),
+                    sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "u25001".into(),
+                    hex_asset_identifier: "01000000000000000000000000000061a9".into(),
+                }),
+                StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                    asset_class_identifier: format!("{}::domain", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "{ id: u1, name: 'ludovic.id' }".into(),
+                    hex_asset_identifier: "0c000000020269640100000000000000000000000000000001046e616d650d0000000a6c75646f7669632e6964".into(), // { id: u1, name: "ludovic.id" }
+                }),
+                StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
+                    asset_class_identifier: format!("{}::domain", contract.to_string()),
+                    recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
+                    hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // { id: u2, name: "ludovic.btc" }
+                }),
+                StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
+                    asset_class_identifier: format!("{}::domain", contract.to_string()),
+                    recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
+                    sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
+                    asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
+                    hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // u8000
+                }),
+            ],
+        }
+    }
+}
 }

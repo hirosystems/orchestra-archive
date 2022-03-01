@@ -268,29 +268,42 @@ impl OrchestraSupervisor {
         };
 
         let blocks = match chain_event {
-            StacksChainEvent::ChainUpdatedWithBlock(block) => vec![block],
-            StacksChainEvent::ChainUpdatedWithReorg(old_segment, new_segment) => {
-                let blocks_ids_to_rollback = old_segment
+            StacksChainEvent::ChainUpdatedWithBlock(update) => {
+                worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(update.new_block.clone(), update.anchored_trail.clone()));
+                vec![(update.new_block.block_identifier, update.new_block.transactions)]
+            },
+            StacksChainEvent::ChainUpdatedWithReorg(update) => {
+                let blocks_ids_to_rollback = update.old_blocks
                     .into_iter()
-                    .map(|b| b.block_identifier)
+                    .map(|(old_trail, old_block)| old_block.block_identifier)
                     .collect::<Vec<_>>();
 
                 worker.tell(BlockStoreManagerMessage::RollbackStacksBlocks(
                     blocks_ids_to_rollback,
                 ));
-
-                // todo: use trigger_history to Rollback previous changes.
-                new_segment
+                let mut batches = vec![];
+                for (anchored_trail, new_block) in update.new_blocks.into_iter() {
+                    worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(new_block.clone(), anchored_trail.clone()));
+                    batches.push((new_block.block_identifier, new_block.transactions));
+                }
+                batches
             }
+            StacksChainEvent::ChainUpdatedWithMicroblock(update) => {
+                let micro_tip = update.current_trail.microblocks.last().unwrap();
+                worker.tell(BlockStoreManagerMessage::ArchiveStacksMicroblock(micro_tip.clone()));
+                vec![(micro_tip.block_identifier.clone(), micro_tip.transactions.clone())]
+            },
+            StacksChainEvent::ChainUpdatedWithMicroblockReorg(_) => {
+                unreachable!()
+            },
         };
 
-        for block in blocks.iter() {
+        for (block_identifier, transactions) in blocks.iter() {
             // Send message BlockStoreManagerMessage::ArchiveStacksBlock(block)
-            worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(block.clone()));
 
             let mut transactions_batches: BTreeMap<&str, Vec<StacksTransactionData>> =
                 BTreeMap::new();
-            for tx in block.transactions.iter() {
+            for tx in transactions.iter() {
                 let intersect = tx
                     .metadata
                     .receipt
@@ -315,7 +328,7 @@ impl OrchestraSupervisor {
                 };
                 info!(self.log(), "Spawning batch");
                 worker.tell(ContractProcessorMessage::ProcessTransactionsBatch(
-                    block.block_identifier.clone(),
+                    block_identifier.clone(),
                     batch,
                 ));
             }

@@ -17,7 +17,7 @@ fn main() {
 
   std::thread::spawn(|| {
     orchestra::run_backend(backend_cmd_tx, frontend_cmd_rx);
-    // orchestra::run_backend(backend_cmd_tx, frontend_cmd_rx);
+    // orchestra::mock_backend(backend_cmd_tx, frontend_cmd_rx);
   });
 
   let context = tauri::generate_context!("tauri.conf.json");

@@ -46,6 +46,7 @@ pub struct ContractProcessor {
     contract_processor_port: ProvidedPort<ContractProcessorPort>,
     contract_id: String,
     storage_driver: StorageDriver,
+    block_identifier_hint: Option<BlockIdentifier>,
 }
 pub enum Changes<'a> {
     UpdateDataVar(&'a str, &'a str, &'a str),
@@ -68,6 +69,7 @@ impl ContractProcessor {
             contract_processor_port: ProvidedPort::uninitialised(),
             storage_driver,
             contract_id,
+            block_identifier_hint: None,
         }
     }
 
@@ -84,11 +86,13 @@ impl ContractProcessor {
             let mut options = Options::default();
             options.create_if_missing(true);
             let contract_id = self.contract_id.clone();
+            // Todo: re-approach this
             let db = DB::open_for_read_only(&options, working_dir, true).unwrap();
 
             // Get dependencies
+            let settings = clarinet_lib::clarity_repl::repl::Settings::default();
             let mut interpreter =
-                ClarityInterpreter::new(StandardPrincipalData::transient(), 2, vec![]);
+                ClarityInterpreter::new(StandardPrincipalData::transient(), settings);
 
             let mut contracts: BTreeMap<String, ContractInstanciation> = BTreeMap::new();
             let mut dependencies: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -97,41 +101,71 @@ impl ContractProcessor {
             queue.push_front(contract_id.clone());
 
             while let Some(contract_id) = queue.pop_front() {
-                let (_, deps) = match contracts.get(&contract_id) {
-                    Some(entry) => (entry.clone(), Vec::new()),
-                    None => {
-                        let bytes = db
-                            .get(&contract_id.as_bytes())
-                            .expect("Unable to hit contract storage")
-                            .expect("Unable to retrieve contract");
-                        let contract_instance =
-                            serde_json::from_slice::<ContractInstanciation>(&bytes)
-                                .expect("Unable to deserialize contract");
+                info!(
+                    self.log(),
+                    "Dependencies 1: {:?} ", contract_id
+                );
+        
+                if contracts.get(&contract_id).is_some() {
+                    info!(
+                        self.log(),
+                        "Dependencies 2: {:?} ", contract_id
+                    );
+        
+                    // Already handled, pursue dequeuing
+                    continue;
+                }
 
-                        let deps = interpreter
-                            .detect_dependencies(
-                                contract_id.to_string(),
-                                contract_instance.code.clone(),
-                                2,
-                            )
-                            .expect("Unable to retrieve contract dependencies");
+                let bytes = db
+                    .get(&contract_id.as_bytes())
+                    .expect("Unable to hit contract storage")
+                    .expect(&format!("Unable to retrieve contract {}", contract_id));
+                let contract_instance =
+                    serde_json::from_slice::<ContractInstanciation>(&bytes)
+                        .expect("Unable to deserialize contract");
+                if contract_id == self.contract_id {
+                    self.block_identifier_hint = Some(contract_instance.block_identifier.clone());
+                }
+                let deps = interpreter
+                    .detect_dependencies(
+                        contract_id.to_string(),
+                        contract_instance.code.clone(),
+                        2,
+                    )
+                    .expect("Unable to retrieve contract dependencies")
+                    .into_iter()
+                    .map(|c| c.to_string())
+                    .collect::<Vec<String>>();
 
-                        contracts.insert(contract_id.to_string(), contract_instance.clone());
-                        (contract_instance, deps)
-                    }
-                };
+                contracts.insert(contract_id.to_string(), contract_instance.clone());
+                
+                dependencies.insert(
+                    contract_id.to_string(),
+                    deps.clone(),
+                );
 
                 if deps.len() > 0 {
-                    dependencies.insert(
-                        contract_id.to_string(),
-                        deps.clone().into_iter().map(|c| c.to_string()).collect(),
+                    info!(
+                        self.log(),
+                        "Dependencies 3: {:?} {:?}", contract_id, deps
                     );
+    
                     for contract_id in deps.into_iter() {
                         queue.push_back(contract_id.to_string());
                     }
                     queue.push_back(contract_id.to_string());
                 } else {
+                    info!(
+                        self.log(),
+                        "Dependencies 4: {:?} {:?}", contract_id, deps
+                    );
+    
                     if !dependencies.contains_key(&contract_id) {
+                        info!(
+                            self.log(),
+                            "Dependencies 5: {:?} {:?}", contract_id, deps
+                        );
+    
                         dependencies.insert(contract_id.to_string(), vec![]);
                     }
                 }
@@ -145,11 +179,14 @@ impl ContractProcessor {
         // Build a SessionSettings struct from the contracts
         let mut settings = SessionSettings::default();
         settings.include_boot_contracts = vec!["costs-v2".to_string()];
-        settings.costs_version = 2;
-        settings.analysis = vec!["all".into()];
+        settings.repl_settings.costs_version = 2;
 
         let mut incremental_session = Session::new(settings);
         let mut full_analysis = BTreeMap::new();
+        info!(
+            self.log(),
+            "Starting analysis of {:?} with dependencies {:?}", self.contract_id, ordered_contracts_ids
+        );
         for contract_id in ordered_contracts_ids.into_iter() {
             let contract_instanciation = contracts.get(&contract_id).unwrap();
             let mut diagnostics = vec![];
@@ -192,6 +229,10 @@ impl ContractProcessor {
                     continue;
                 }
                 _ => {
+                    warn!(
+                        self.log(),
+                        "Silent Error 1"
+                    );
                     continue;
                 }
             };
@@ -210,7 +251,7 @@ impl ContractProcessor {
 
         info!(
             self.log(),
-            "ContractProcessor performed analysis {:?}", full_analysis
+            "ContractProcessor performed analysis for {}", self.contract_id
         );
 
         // Store artifacts
