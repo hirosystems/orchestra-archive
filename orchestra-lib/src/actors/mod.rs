@@ -65,7 +65,7 @@ mod test {
     use clarinet_lib::types::{
         BlockIdentifier, StacksBlockData, StacksBlockMetadata, StacksContractDeploymentData,
         StacksTransactionData, StacksTransactionKind, StacksTransactionMetadata,
-        StacksTransactionReceipt, TransactionIdentifier,
+        StacksTransactionReceipt, TransactionIdentifier, ChainUpdatedWithBlockData,
     };
     use opentelemetry::trace::{Span, SpanContext, StatusCode};
     use opentelemetry::KeyValue;
@@ -163,8 +163,8 @@ mod test {
         }
     }
 
-    fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> StacksBlockData {
-        StacksBlockData {
+    fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> ChainUpdatedWithBlockData {
+        let block = StacksBlockData {
             block_identifier: BlockIdentifier {
                 index: 1,
                 hash: "1".into(),
@@ -184,7 +184,13 @@ mod test {
                 pox_cycle_position: 0,
                 pox_cycle_length: 0,
             },
+        };
+        ChainUpdatedWithBlockData {
+            new_block: block.clone(),
+            anchored_trail: None,
+            confirmed_block: (block, None),
         }
+        
     }
 
     #[test]
@@ -255,36 +261,36 @@ mod test {
         transaction.metadata.receipt.events.append(&mut vec![
             StacksTransactionEvent::DataVarSetEvent(DataVarSetEventData {
                 var: "my-var".into(),
-                hex_new_value: "1".into(),
+                hex_new_value: "01".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                 map: "my-map".into(),
-                hex_inserted_key: "k1".into(),
-                hex_inserted_value: "v1".into(),
+                hex_inserted_key: "01".into(),
+                hex_inserted_value: "11".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                 map: "my-map".into(),
-                hex_inserted_key: "k2".into(),
-                hex_inserted_value: "v2".into(),
+                hex_inserted_key: "02".into(),
+                hex_inserted_value: "12".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::DataMapInsertEvent(DataMapInsertEventData {
                 map: "my-map".into(),
-                hex_inserted_key: "k3".into(),
-                hex_inserted_value: "v3".into(),
+                hex_inserted_key: "03".into(),
+                hex_inserted_value: "13".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::DataMapUpdateEvent(DataMapUpdateEventData {
                 map: "my-map".into(),
-                hex_key: "k2".into(),
-                hex_new_value: "v4".into(),
+                hex_key: "02".into(),
+                hex_new_value: "14".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::DataMapDeleteEvent(DataMapDeleteEventData {
                 map: "my-map".into(),
-                hex_deleted_key: "k3".into(),
+                hex_deleted_key: "03".into(),
                 contract_identifier: test_contract_id.to_string(),
             }),
             StacksTransactionEvent::FTMintEvent(FTMintEventData {
@@ -368,7 +374,7 @@ mod test {
             let other_contract_id = "S1G2081040G2081040G2081040G208105NK8P91.test";
             db.put(
                 &db_key(
-                    DBKey::MapEntry("my-map", "k1"),
+                    DBKey::MapEntry("my-map", "01"),
                     &other_contract_id.to_string(),
                 ),
                 "junk".as_bytes(),
@@ -384,12 +390,12 @@ mod test {
 
             let res = db
                 .get(&db_key(
-                    DBKey::MapEntry("my-map", "k1"),
+                    DBKey::MapEntry("my-map", "01"),
                     &test_contract_id.to_string(),
                 ))
                 .unwrap()
                 .unwrap();
-            assert_eq!(String::from_utf8(res).unwrap(), "v1".to_string());
+            assert_eq!(res, vec![17]);
 
             let res = db
                 .get(&db_key(

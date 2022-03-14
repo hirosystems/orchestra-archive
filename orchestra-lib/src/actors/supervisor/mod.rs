@@ -7,9 +7,13 @@ use crate::types::{
     BitcoinPredicate, FieldValues, FieldValuesRequest, ProtocolObserverConfig, ProtocolObserverId,
     ProtocolRegistration, StacksChainPredicates, TriggerId,
 };
+use clarinet_lib::clarity_repl::clarity::analysis::ContractAnalysis;
+use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::ContractInterface;
+use clarinet_lib::clarity_repl::clarity::diagnostic::Diagnostic;
+use clarinet_lib::clarity_repl::repl::ast::ContractAST;
 use clarinet_lib::types::{
     BitcoinBlockData, BitcoinChainEvent, StacksBlockData, StacksChainEvent, StacksTransactionData,
-    StacksTransactionReceipt,
+    StacksTransactionReceipt, BlockIdentifier,
 };
 use kompact::prelude::*;
 use rocksdb::DB;
@@ -21,6 +25,8 @@ use opentelemetry::trace::Tracer;
 use opentelemetry::{global, trace::Span};
 
 use super::contract_processor::{ContractProcessorEvent, ContractProcessorPort};
+
+use super::protocol_observer::{ProtocolObserverEvent, ProtocolObserverPort};
 
 #[derive(Clone, Debug)]
 pub enum OrchestraSupervisorMessage {
@@ -43,6 +49,7 @@ pub struct OrchestraSupervisor {
     storage_driver: StorageDriver,
     stacks_predicates: StacksChainPredicates,
     contract_processor_port: RequiredPort<ContractProcessorPort>,
+    protocol_observer_port: RequiredPort<ProtocolObserverPort>,
     bitcoin_predicates: HashMap<BitcoinPredicate, Vec<TriggerId>>,
     trigger_history: VecDeque<(String, HashSet<TriggerId>)>,
 }
@@ -168,12 +175,47 @@ impl Require<ContractProcessorPort> for OrchestraSupervisor {
     }
 }
 
+impl Require<ProtocolObserverPort> for OrchestraSupervisor {
+    fn handle(&mut self, event: ProtocolObserverEvent) -> Handled {
+        match event {
+            ProtocolObserverEvent::ContractsProcessed(protocol_identifier, full_analysis) => {
+                for (contract_id, (analysis, ast, interface, block_identifier)) in full_analysis.into_iter() {
+                    if !self.registered_contracts.contains(&contract_id) {
+                        self.registered_contracts.insert(contract_id.clone());
+                        self.start_contract_processor(contract_id.clone(), interface, analysis, ast, block_identifier);
+                    }
+                    let worker = match self.active_contracts_processors.get(&contract_id) {
+                        Some(worker) => worker,
+                        None => unreachable!(),
+                    };
+        
+                    match self
+                        .contracts_processors_subscriptions
+                        .entry(contract_id)
+                    {
+                        Entry::Occupied(observers) => {
+                            observers.into_mut().insert(protocol_identifier.clone());
+                        }
+                        Entry::Vacant(entry) => {
+                            let mut observers = BTreeSet::new();
+                            observers.insert(protocol_identifier.clone());
+                            entry.insert(observers);
+                        }
+                    };
+                }
+            }
+        }
+        Handled::Ok
+    }
+}
+
 impl OrchestraSupervisor {
     pub fn new(storage_driver: StorageDriver) -> Self {
         global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
         Self {
             ctx: ComponentContext::uninitialised(),
             contract_processor_port: RequiredPort::uninitialised(),
+            protocol_observer_port: RequiredPort::uninitialised(),
             registered_contracts: HashSet::new(),
             bitcoin_predicates: HashMap::new(),
             stacks_predicates: StacksChainPredicates::new(),
@@ -197,40 +239,13 @@ impl OrchestraSupervisor {
             return;
         }
 
-        for (contract_id, settings) in observer_config.contracts.iter() {
-            let contract_id_ser = contract_id.to_string();
-            if !self.registered_contracts.contains(&contract_id_ser) {
-                self.registered_contracts.insert(contract_id_ser.clone());
-                self.start_contract_processor(contract_id_ser.clone());
-            }
-            let worker = match self.active_contracts_processors.get(&contract_id_ser) {
-                Some(worker) => worker,
-                None => unreachable!(),
-            };
-
-            // todo: boot worker?
-
-            match self
-                .contracts_processors_subscriptions
-                .entry(contract_id_ser)
-            {
-                Entry::Occupied(observers) => {
-                    observers.into_mut().insert(protocol_identifier.clone());
-                }
-                Entry::Vacant(entry) => {
-                    let mut observers = BTreeSet::new();
-                    observers.insert(protocol_identifier.clone());
-                    entry.insert(observers);
-                }
-            };
-        }
         self.start_protocol_observer(&observer_config);
     }
 
-    pub fn start_contract_processor(&mut self, contract_id: String) {
+    pub fn start_contract_processor(&mut self, contract_id: String, interface: ContractInterface, analysis: ContractAnalysis, ast: ContractAST, block_identifier: BlockIdentifier) {
         let system = self.ctx.system();
         let worker = system
-            .create(|| ContractProcessor::new(self.storage_driver.clone(), contract_id.clone()));
+            .create(|| ContractProcessor::new(self.storage_driver.clone(), contract_id.clone(), interface, analysis, ast, block_identifier));
         worker.connect_to_required(self.contract_processor_port.share());
         system.start(&worker);
         self.active_contracts_processors
@@ -241,6 +256,7 @@ impl OrchestraSupervisor {
         let system = self.ctx.system();
         let worker = system
             .create(|| ProtocolObserver::new(self.storage_driver.clone(), observer_config.clone()));
+        worker.connect_to_required(self.protocol_observer_port.share());
         system.start(&worker);
         self.active_protocol_observers
             .insert(observer_config.identifier.clone(), worker.actor_ref());

@@ -1,6 +1,7 @@
 use orchestra_lib::clarinet_lib::clarity_repl::repl::{Session, SessionSettings};
+use orchestra_lib::clarinet_lib::integrate::chains_coordinator::ChainsCoordinatorCommand;
 use orchestra_lib::clarinet_lib::poke::load_session_settings;
-use orchestra_lib::clarinet_lib::publish::Network;
+use orchestra_lib::clarinet_lib::types::Network;
 use serde::{self, Deserialize, Serialize};
 use serde_json::json;
 
@@ -101,6 +102,7 @@ pub enum NetworkResponse {
   StateExplorerSync(StateExplorerSyncUpdate),
   StateExplorerWatch(StateExplorerWatchUpdate),
   Noop(NoopUpdate),
+  Error(String)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -167,12 +169,77 @@ pub enum FrontendCommand {
   PollState(PollState),
 }
 
+#[derive(Debug)]
+pub enum MiningCommand {
+  UpdateBlockTime(u32),
+  SetDevnetCommandSender(Sender<ChainsCoordinatorCommand>),
+  Start,
+  Pause,
+  Mine,
+}
+
+pub fn run_clock(
+  clock_cmd_rx: Receiver<MiningCommand>,
+) {
+  let mut block_time_interval = match clock_cmd_rx.recv() {
+    Ok(MiningCommand::UpdateBlockTime(block_time)) => block_time,
+    Ok(cmd) => {
+      std::process::exit(1)
+    }
+    _ => {
+      std::process::exit(1)
+    }
+  };
+
+  let chains_coordinator_commands_tx = match clock_cmd_rx.recv() {
+    Ok(MiningCommand::SetDevnetCommandSender(tx)) => tx,
+    _ => {
+      std::process::exit(1)
+    }
+  };
+
+  loop {
+    if let Ok(msg) = clock_cmd_rx.try_recv() {
+      match msg {
+        MiningCommand::Mine => {
+          let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBlock);
+        }
+        MiningCommand::Start => break,
+        _ => {}
+      }
+    }
+  }
+
+  let sec = std::time::Duration::from_secs(1);
+  loop {
+
+    let mut countdown = 0;
+    for limit in 0..block_time_interval {
+      
+      std::thread::sleep(sec);
+      countdown += 1;
+
+      if let Ok(msg) = clock_cmd_rx.try_recv() {
+        match msg {
+          MiningCommand::Pause => {}
+          MiningCommand::Mine => {
+            chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBlock);
+            break;  
+          }
+          MiningCommand::UpdateBlockTime(interval) => {}
+          _ => {}
+        }
+      }
+    }
+  }
+}
+
 pub fn run_backend(
   backend_cmd_tx: Sender<BackendCommand>,
   frontend_cmd_rx: Receiver<FrontendCommand>,
+  clock_cmd_tx: Sender<MiningCommand>,
 ) {
   use orchestra_lib::actors::OrchestraSupervisorMessage;
-  use std::convert::TryInto;
 
   let mut protocol_observer_config = None;
   let mut supervisor_tx = None;
@@ -211,17 +278,22 @@ pub fn run_backend(
                 overrides.disable_bitcoin_explorer = Some(true);
                 overrides.disable_stacks_api = Some(true);
                 overrides.disable_stacks_explorer = Some(true);
+                overrides.bitcoin_controller_automining_disabled = Some(true);
                 overrides.stacks_node_image_url = Some("quay.io/hirosystems/stacks-node:devnet-beta".to_string());
-                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));
-  
-                let (devnet_events_rx, terminator_tx) =
+
+                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));                
+
+                let (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx) =
                   match integrate::run_devnet(devnet, Some(log_tx), false) {
-                    Ok((Some(devnet_events_rx), Some(terminator_tx))) => {
-                      (devnet_events_rx, terminator_tx)
+                    Ok((Some(devnet_events_rx), Some(terminator_tx), Some(chains_coordinator_commands_tx))) => {
+                      (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx)
                     }
                     _ => std::process::exit(1),
                   };
-  
+                let _ = clock_cmd_tx.send(MiningCommand::UpdateBlockTime(30));
+
+                let _ = clock_cmd_tx.send(MiningCommand::SetDevnetCommandSender(chains_coordinator_commands_tx));
+
                 let (tx, supervisor_rx) = channel();
   
                 std::thread::spawn(|| {
@@ -298,19 +370,21 @@ pub fn run_backend(
                 supervisor_tx = Some(tx);
   
                 std::thread::spawn(move || loop {
-                  let event = devnet_events_rx.recv().unwrap();
-                  match event {
-                    DevnetEvent::BitcoinChainEvent(event) => {
+                  match devnet_events_rx.recv() {
+                    Ok(DevnetEvent::BitcoinChainEvent(event)) => {
                       supervisor_tx_relayer
                         .send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event))
                         .unwrap();
                     }
-                    DevnetEvent::StacksChainEvent(event) => {
+                    Ok(DevnetEvent::StacksChainEvent(event)) => {
                       supervisor_tx_relayer
                         .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event))
                         .unwrap();
                     }
-                    _ => {}
+                    Ok(_) => {}
+                    Err(_) => {
+                      break;
+                    }
                   }
                 });
   
@@ -356,15 +430,16 @@ pub fn run_backend(
                     },
                   ))
                   .expect("Unable to communicate with backend");
-                let response = rx.recv().unwrap();
-
-                NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
-                  stacks_blocks: response.stacks_blocks,
-                  bitcoin_blocks: response.bitcoin_blocks,
-                  contract_identifier: response.contract_identifier.clone(),
-                  field_name: response.field_name.clone(),
-                  field_values: response.values.clone(),
-                })
+                match rx.recv() {
+                  Ok(response) => NetworkResponse::StateExplorerWatch(StateExplorerWatchUpdate {
+                    stacks_blocks: response.stacks_blocks,
+                    bitcoin_blocks: response.bitcoin_blocks,
+                    contract_identifier: response.contract_identifier.clone(),
+                    field_name: response.field_name.clone(),
+                    field_values: response.values.clone(),
+                  }),
+                  Err(err) => NetworkResponse::Error(format!("{}", err.to_string()))
+                }
               }
               StateExplorerWatchTarget::Wallet(wallet) => {
                 unreachable!()
@@ -450,7 +525,7 @@ pub fn config_from_clarinet_manifest_path(
   manifest_path: &str,
 ) -> (ProtocolObserverConfig, SessionSettings) {
   use orchestra_lib::clarinet_lib::clarity_repl::clarity::types::QualifiedContractIdentifier;
-  use orchestra_lib::types::{ContractSettings, ProjectMetadata, ProtocolObserverId};
+  use orchestra_lib::types::{ContractSettings, ProjectMetadata};
 
   let manifest_path = PathBuf::from(manifest_path);
 
@@ -559,6 +634,7 @@ pub fn run_frontend(
         Message::Binary(bytes) => true,
         Message::Ping(bytes) => true,
         Message::Pong(bytes) => true,
+        Message::Frame(bytes) => true,
         Message::Close(close_cmd) => true,
       };
 
@@ -755,7 +831,6 @@ pub fn mock_backend(
                     }),
                   ))
                   .unwrap();
-
 
                 NetworkResponse::BootNetwork(BootNetworkUpdate {
                   status: "".to_string(),

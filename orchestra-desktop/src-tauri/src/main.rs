@@ -10,13 +10,18 @@ mod orchestra;
 fn main() {
   let (frontend_cmd_tx, frontend_cmd_rx) = channel();
   let (backend_cmd_tx, backend_cmd_rx) = channel();
+  let (clock_cmd_tx, clock_cmd_rx) = channel();
+
+  std::thread::spawn(|| {
+    orchestra::run_clock(clock_cmd_rx);
+  });
 
   std::thread::spawn(|| {
     orchestra::run_frontend(frontend_cmd_tx, backend_cmd_rx);
   });
 
   std::thread::spawn(|| {
-    orchestra::run_backend(backend_cmd_tx, frontend_cmd_rx);
+    orchestra::run_backend(backend_cmd_tx, frontend_cmd_rx, clock_cmd_tx);
     // orchestra::mock_backend(backend_cmd_tx, frontend_cmd_rx);
   });
 

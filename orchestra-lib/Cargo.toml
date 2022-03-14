@@ -25,5 +25,6 @@ path = "../../clarinet/clarinet-cli"
 default-features = false
 
 [dependencies.rocksdb]
+version = "0.18.0"
 default-features = false
-features = ["lz4"]
+features = ["lz4", "snappy"]
