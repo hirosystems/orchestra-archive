@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { PackageDependenciesIcon, PackageDependentsIcon } from "@primer/octicons-react";
 import { StyledOcticon } from "@primer/react";
 import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
-import { buildNextRequest, selectNetworkPaused } from "../../states/NetworkingState";
+import { buildNextRequest, discardBlock, mineBlock, selectNetworkPaused } from "../../states/NetworkingState";
 import { MouseEvent } from 'react';
 
 export const Container = styled.div`
@@ -56,20 +56,25 @@ const DebugControl = () => {
 
     function handleDiscardBlock(event: TouchEvent | MouseEvent) {
         event.preventDefault();
+        dispatch(discardBlock())
+        dispatch(buildNextRequest(1));
+
     }
 
     function handleMineBlock(event: TouchEvent | MouseEvent) {
         event.preventDefault();
+        dispatch(mineBlock())
+        dispatch(buildNextRequest(1));
     }
 
     let enabled = networkPaused;
 
     return (
         <Container>
-            <LeftButton color={enabled ? "rgba(255, 255, 255)" : "rgba(255, 255, 255, 0.05)"}>
+            <LeftButton color={enabled ? "rgba(255, 255, 255)" : "rgba(255, 255, 255, 0.05)"} onClick={handleDiscardBlock}>
                 <StyledOcticon icon={PackageDependenciesIcon} size={24} sx={{ mr: 2, color: enabled ? "danger.emphasis" : "rgba(255, 255, 255, 0.25)" }} />
             </LeftButton>
-            <RightButton color={enabled ? "white" : "rgba(255, 255, 255, 0.05)"}>
+            <RightButton color={enabled ? "white" : "rgba(255, 255, 255, 0.05)"} onClick={handleMineBlock}>
                 <StyledOcticon icon={PackageDependentsIcon} size={24} sx={{ mr: 2, color: enabled ? "success.emphasis" : "rgba(255, 255, 255, 0.25)" }} />
             </RightButton>
         </Container>

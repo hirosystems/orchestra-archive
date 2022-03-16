@@ -1,7 +1,7 @@
 
 import styled from "styled-components";
 import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
-import { toggleMining, selectNetworkPaused } from "../../states/NetworkingState";
+import { toggleMining, selectNetworkPaused, buildNextRequest } from "../../states/NetworkingState";
 import { MouseEvent } from 'react';
 
 export const Container = styled.div`
@@ -37,10 +37,11 @@ const ToggleControl = () => {
     function handleToggle(event: TouchEvent | MouseEvent) {
         event.preventDefault();
         dispatch(toggleMining())
+        dispatch(buildNextRequest(1));
     }
 
     let text = "Pause Mining";
-    let color = "#FEB000";
+    let color = "rgb(9, 105, 218)";
     if (networkPaused) {
         text = "Resume Mining";
         color = "#6E57FF";

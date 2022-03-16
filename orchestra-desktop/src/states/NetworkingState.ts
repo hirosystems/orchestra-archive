@@ -69,6 +69,12 @@ export interface BootNetworkData {
   protocol_name: string;
 }
 
+export interface NetworkControlCommandData {
+  toggle_auto_mining: boolean;
+  invalidate_chain_tip: boolean;
+  mine_block: boolean;
+}
+
 export interface ProtocolData {
   contracts: Array<Contract>;
   protocol_name: string;
@@ -77,6 +83,7 @@ export interface ProtocolData {
 export enum StateExplorerState {
   None = "None",
   BootNetwork = "BootNetwork",
+  NetworkControl = "NetworkControl",
   Initialization = "StateExplorerInitialization",
   Sleep = "StateExplorerSleep",
   Watch = "StateExplorerWatch",
@@ -253,6 +260,9 @@ export interface NetworkingState {
   bootNetworkStatus?: BootNetworkData;
   devnetStarted: boolean;
   devnetPaused: boolean;
+  toggleRequested: boolean;
+  mineBlockRequested: boolean;
+  discardBlockRequested: boolean;
   protocolIdentifierWatched?: number;
   fieldIdentifierWatched?: [[string, string], BlockIdentifier];
   latestBlockIdentifierKnownByFieldIdentifier: {
@@ -267,6 +277,9 @@ const initialState: NetworkingState = {
   requestNonce: 0,
   devnetStarted: false,
   devnetPaused: false,
+  toggleRequested: false,
+  mineBlockRequested: false,
+  discardBlockRequested: false,
 };
 
 export const networkingSlice = createSlice({
@@ -310,6 +323,13 @@ export const networkingSlice = createSlice({
     },
     toggleMining: (state: NetworkingState, action: PayloadAction) => {
       state.devnetPaused = !state.devnetPaused;
+      state.toggleRequested = true;
+    },
+    discardBlock: (state: NetworkingState, action: PayloadAction) => {
+      state.discardBlockRequested = true;
+    },
+    mineBlock: (state: NetworkingState, action: PayloadAction) => {
+      state.mineBlockRequested = true;
     },
     updateBlockIdentifierForContractField: (
       state: NetworkingState,
@@ -405,6 +425,31 @@ export const networkingSlice = createSlice({
         return;
       }
 
+      if (state.toggleRequested || state.discardBlockRequested || state.mineBlockRequested) {
+        
+        let request: NetworkControlCommandData = {
+          toggle_auto_mining: state.toggleRequested,
+          invalidate_chain_tip: state.discardBlockRequested,
+          mine_block: state.mineBlockRequested,
+        };
+  
+        state.toggleRequested = false;
+        state.discardBlockRequested = false;
+        state.mineBlockRequested = false;
+
+        state.requestNonce += action.payload;
+  
+        state.nextRequest = {
+          protocol_id: state.protocolIdentifierWatched,
+          nonce: state.requestNonce,
+          request: {
+            NetworkControl: request,
+          },
+        };
+  
+        return;
+      }
+
       if (state.fieldIdentifierWatched === undefined) {
         // Nothing being watched. Should just be fetching general blocks informations (todo)
         state.nextRequest = undefined;
@@ -450,6 +495,8 @@ export const {
   bootNetwork,
   initiateBootSequence,
   toggleMining,
+  discardBlock, 
+  mineBlock
 } = networkingSlice.actions;
 
 export const selectNetworkBootStatus = (state: RootState) =>

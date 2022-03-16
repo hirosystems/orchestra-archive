@@ -13,7 +13,6 @@ export const Container = styled.div`
     background-color: ${(props: { enabled: boolean }) => props.enabled ? "#6E57FF" : "rgba(255, 255, 255, 0.05)"};
     color: ${(props: { enabled: boolean }) => props.enabled ? "white" : "rgba(255, 255, 255, 0.25)"};
     border-radius: 24px;
-
 `
 
 export const Inner = styled.div`

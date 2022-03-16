@@ -1,5 +1,6 @@
+// mod electrum;
+
 use orchestra_lib::clarinet_lib::clarity_repl::repl::{Session, SessionSettings};
-use orchestra_lib::clarinet_lib::integrate::chains_coordinator::ChainsCoordinatorCommand;
 use orchestra_lib::clarinet_lib::poke::load_session_settings;
 use orchestra_lib::clarinet_lib::types::Network;
 use serde::{self, Deserialize, Serialize};
@@ -26,7 +27,7 @@ use orchestra_lib::clarinet_lib::types::{
   BitcoinBlockData, BitcoinBlockMetadata, BitcoinChainEvent, BlockIdentifier, StacksBlockData,
   StacksChainEvent, StacksContractDeploymentData, StacksTransactionData, StacksTransactionKind,
   StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier, DevnetConfigFile,
-  ChainUpdatedWithBlockData,
+  ChainUpdatedWithBlockData, ChainsCoordinatorCommand
 };
 use orchestra_lib::types::{
   Contract, FieldValues, FieldValuesRequest, ProtocolObserverConfig, ProtocolObserverId,
@@ -49,9 +50,17 @@ pub struct PollState {
 pub enum NetworkRequest {
   OpenProtocol(StateExplorerInitialization),
   BootNetwork(StateExplorerInitialization),
+  NetworkControl(NetworkControlCommand),
   StateExplorerInitialization(StateExplorerInitialization),
   StateExplorerWatch(StateExplorerWatch),
   StateExplorerSync(StateExplorerSync),
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct NetworkControlCommand {
+  toggle_auto_mining: bool,
+  invalidate_chain_tip: bool,
+  mine_block: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -174,8 +183,9 @@ pub enum MiningCommand {
   UpdateBlockTime(u32),
   SetDevnetCommandSender(Sender<ChainsCoordinatorCommand>),
   Start,
-  Pause,
-  Mine,
+  ToggleMining,
+  MineBlock,
+  InvalidateChainTip,
 }
 
 pub fn run_clock(
@@ -198,38 +208,34 @@ pub fn run_clock(
     }
   };
 
+  let mut mining_paused = false;
   loop {
-    if let Ok(msg) = clock_cmd_rx.try_recv() {
-      match msg {
-        MiningCommand::Mine => {
-          let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBlock);
-        }
-        MiningCommand::Start => break,
-        _ => {}
-      }
-    }
-  }
-
-  let sec = std::time::Duration::from_secs(1);
-  loop {
-
-    let mut countdown = 0;
-    for limit in 0..block_time_interval {
+    for _ in 0..block_time_interval {
       
-      std::thread::sleep(sec);
-      countdown += 1;
+      std::thread::sleep(std::time::Duration::from_secs(1));
 
       if let Ok(msg) = clock_cmd_rx.try_recv() {
         match msg {
-          MiningCommand::Pause => {}
-          MiningCommand::Mine => {
-            chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBlock);
+          MiningCommand::MineBlock => {
+            let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBitcoinBlock);
             break;  
           }
-          MiningCommand::UpdateBlockTime(interval) => {}
+          MiningCommand::InvalidateChainTip => {
+            let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::InvalidateBitcoinChainTip);
+          }
+          MiningCommand::ToggleMining => {
+            mining_paused = !mining_paused;
+          }
+          MiningCommand::UpdateBlockTime(updated_block_time) => {
+            block_time_interval = updated_block_time;
+            break
+          }
           _ => {}
         }
       }
+    }
+    if !mining_paused {
+      let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBitcoinBlock);
     }
   }
 }
@@ -268,6 +274,18 @@ pub fn run_backend(
               NetworkResponse::Noop(NoopUpdate {})
             }
           }
+          NetworkRequest::NetworkControl(state) => {
+            if state.toggle_auto_mining {
+              let _ = clock_cmd_tx.send(MiningCommand::ToggleMining);
+            }
+            if state.mine_block {
+              let _ = clock_cmd_tx.send(MiningCommand::MineBlock);
+            }
+            if state.invalidate_chain_tip {
+              let _ = clock_cmd_tx.send(MiningCommand::InvalidateChainTip);
+            }
+            NetworkResponse::Noop(NoopUpdate {})
+          }
           NetworkRequest::BootNetwork(_state) => {
             if !network_booted {
               network_booted = true;
@@ -279,30 +297,7 @@ pub fn run_backend(
                 overrides.disable_stacks_api = Some(true);
                 overrides.disable_stacks_explorer = Some(true);
                 overrides.bitcoin_controller_automining_disabled = Some(true);
-                overrides.stacks_node_image_url = Some("quay.io/hirosystems/stacks-node:devnet-beta".to_string());
 
-                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));                
-
-                let (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx) =
-                  match integrate::run_devnet(devnet, Some(log_tx), false) {
-                    Ok((Some(devnet_events_rx), Some(terminator_tx), Some(chains_coordinator_commands_tx))) => {
-                      (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx)
-                    }
-                    _ => std::process::exit(1),
-                  };
-                let _ = clock_cmd_tx.send(MiningCommand::UpdateBlockTime(30));
-
-                let _ = clock_cmd_tx.send(MiningCommand::SetDevnetCommandSender(chains_coordinator_commands_tx));
-
-                let (tx, supervisor_rx) = channel();
-  
-                std::thread::spawn(|| {
-                  let storage_driver = StorageDriver::tmpfs();
-                  println!("Working dir: {:?}", storage_driver);
-                  actors::run_supervisor(storage_driver, supervisor_rx)
-                    .expect("Unable to run supervisor");
-                });
-  
                 let protocol_name = config.project.name.clone();
                 let mut update = BootNetworkUpdate {
                   status: "Booting network".to_string(),
@@ -313,6 +308,33 @@ pub fn run_backend(
                   protocol_name,
                   contracts: vec![],
                 };
+                backend_cmd_tx
+                  .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
+                    update.clone(),
+                  )))
+                  .unwrap();
+
+                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));                
+
+                let (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx) =
+                  match integrate::run_devnet(devnet, Some(log_tx), false) {
+                    Ok((Some(devnet_events_rx), Some(terminator_tx), Some(chains_coordinator_commands_tx))) => {
+                      (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx)
+                    }
+                    _ => std::process::exit(1),
+                  };
+                let _ = clock_cmd_tx.send(MiningCommand::UpdateBlockTime(10));
+
+                let (tx, supervisor_rx) = channel();
+  
+                std::thread::spawn(|| {
+                  let storage_driver = StorageDriver::tmpfs();
+                  println!("Working dir: {:?}", storage_driver);
+                  actors::run_supervisor(storage_driver, supervisor_rx)
+                    .expect("Unable to run supervisor");
+                });
+  
+                update.status = "Waiting for blocks".to_string();
                 backend_cmd_tx
                   .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
                     update.clone(),
@@ -349,17 +371,20 @@ pub fn run_backend(
                     _ => {}
                   }
   
+                  backend_cmd_tx
+                    .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
+                      update.clone(),
+                    )))
+                    .unwrap();
+
                   if update.protocol_deployed {
                     break;
-                  } else {
-                    backend_cmd_tx
-                      .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
-                        update.clone(),
-                      )))
-                      .unwrap();
                   }
                 }
-  
+
+                // From there we can unlock the clock and start mining.
+                let _ = clock_cmd_tx.send(MiningCommand::SetDevnetCommandSender(chains_coordinator_commands_tx));
+
                 tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(
                   config.clone(),
                 ))
@@ -734,6 +759,9 @@ pub fn mock_backend(
                 NetworkResponse::Noop(NoopUpdate {})
               }
             }  
+            NetworkRequest::NetworkControl(state) => {
+              NetworkResponse::Noop(NoopUpdate {})
+            }
             NetworkRequest::BootNetwork(boot_state) => {
               if !network_booted {
                 network_booted = true;

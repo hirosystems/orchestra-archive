@@ -98,7 +98,7 @@ export const Menu = styled.div`
 
 export const MainCanvas = styled.div`
     flex-grow: 2;
-    padding-top: 10px;
+    padding-top: 32px;
 `
 
 export const RightPanel = styled.div`

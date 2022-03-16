@@ -6,7 +6,7 @@ import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
 import { appendBitcoinBlocks, appendStacksBlocks } from "../states/BlocksExplorerState";
 
 const WS_ADDRESS = "ws://127.0.0.1:2404";
-const WS_POLL_INTERVAL = 5000;
+const WS_POLL_INTERVAL = 2500;
 
 const ws = new WebSocket(WS_ADDRESS);
 
