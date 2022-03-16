@@ -1,10 +1,10 @@
-import { Text, Timeline, StyledOcticon, Link } from '@primer/react'
-import {PaperAirplaneIcon, RocketIcon, FlameIcon } from '@primer/octicons-react'
+import { Timeline, StyledOcticon } from '@primer/react'
+import { PaperAirplaneIcon, RocketIcon, FlameIcon } from '@primer/octicons-react'
 import styled from "styled-components"
 import { FtBurnEvent, FtMintEvent, FtTransferEvent } from '../../states/NetworkingState';
 
 export const Container = styled.div`
-    color: rgb(55, 53, 47);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 24px;
     font-weight: 600;
     letter-space: 0.03em;
@@ -12,7 +12,7 @@ export const Container = styled.div`
     cursor: default;
 `
 
-const FtEvent = (props: { event: FtMintEvent|FtTransferEvent|FtBurnEvent }) => {
+const FtEvent = (props: { event: FtMintEvent | FtTransferEvent | FtBurnEvent }) => {
     let icon = RocketIcon;
     let color = 'success.emphasis';
     let label = '';
@@ -30,10 +30,10 @@ const FtEvent = (props: { event: FtMintEvent|FtTransferEvent|FtBurnEvent }) => {
 
     return (
         <Timeline.Item>
-            <Timeline.Badge sx={{bg: color}}>
-                <StyledOcticon icon={icon} sx={{color: 'fg.onEmphasis'}} />
+            <Timeline.Badge sx={{ bg: color }}>
+                <StyledOcticon icon={icon} sx={{ color: 'fg.onEmphasis' }} />
             </Timeline.Badge>
-            <Timeline.Body>{label}</Timeline.Body>
+            <Timeline.Body sx={{ color: 'fg.onEmphasis' }}>{label}</Timeline.Body>
         </Timeline.Item>
     );
 };

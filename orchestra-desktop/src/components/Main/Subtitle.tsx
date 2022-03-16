@@ -1,11 +1,8 @@
-
-
 import { Text } from '@primer/react'
-import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
-    color: rgba(55, 53, 47, 0.6);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 14px;
     font-weight: 500;
     letter-space: 0.03em;

@@ -1,10 +1,9 @@
-import { Text } from '@primer/react'
 import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
     width: 256px;
-    color: rgba(55, 53, 47, 0.4);
+    color: rgb(155, 155, 155);
     text-transform: uppercase;
     font-size: 11.5px;
     font-weight: 600;
@@ -26,7 +25,7 @@ const Section = (props: { name: String }) => {
     function handleClick(event: MouseEvent) {
         event.preventDefault();
     }
-    
+
     return (
         <Container onClick={handleClick}>
             {props.name}

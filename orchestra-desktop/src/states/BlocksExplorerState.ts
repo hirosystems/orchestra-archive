@@ -1,13 +1,13 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../stores/root";
-import { BitcoinBlock, BlockIdentifier, StacksBlock } from "../types/clarinet";
+import { BitcoinBlock, StacksBlock } from "../types/clarinet";
 
 export interface BlocksExplorerState {
-  initialized: boolean,
-  bitcoinChainTipIndex: number,
-  stacksChainTipIndex: number,
-  bitcoinBlocks: { [blockIndex: number]: BitcoinBlock },
-  stacksBlocks: { [blockIndex: number]: StacksBlock },
+  initialized: boolean;
+  bitcoinChainTipIndex: number;
+  stacksChainTipIndex: number;
+  bitcoinBlocks: { [blockIndex: number]: BitcoinBlock };
+  stacksBlocks: { [blockIndex: number]: StacksBlock };
 }
 
 const initialState: BlocksExplorerState = {
@@ -45,12 +45,15 @@ export const blocksExplorerStateSlice = createSlice({
   },
 });
 
-export const { appendStacksBlocks, appendBitcoinBlocks } = blocksExplorerStateSlice.actions;
+export const { appendStacksBlocks, appendBitcoinBlocks } =
+  blocksExplorerStateSlice.actions;
 
-export const getBitcoinChainTip = (state: RootState): BitcoinBlock | undefined =>
-  state.blocksExplorer.bitcoinBlocks[state.blocksExplorer.bitcoinChainTipIndex]
+export const getBitcoinChainTip = (
+  state: RootState
+): BitcoinBlock | undefined =>
+  state.blocksExplorer.bitcoinBlocks[state.blocksExplorer.bitcoinChainTipIndex];
 
 export const getStacksChainTip = (state: RootState): StacksBlock | undefined =>
-  state.blocksExplorer.stacksBlocks[state.blocksExplorer.stacksChainTipIndex]
+  state.blocksExplorer.stacksBlocks[state.blocksExplorer.stacksChainTipIndex];
 
 export default blocksExplorerStateSlice.reducer;

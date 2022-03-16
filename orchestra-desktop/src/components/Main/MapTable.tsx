@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { styled } from '@mui/system';
 import TablePaginationUnstyled from '@mui/base/TablePaginationUnstyled';
-import { ClarityAbiType, isClarityAbiPrimitive, isClarityAbiTuple } from '../../types';
+import { ClarityAbiType, isClarityAbiTuple } from '../../types';
 
 const blue = {
   200: '#A5D8FF',
@@ -139,7 +139,7 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
     for (let entry of rawEntries) {
       entries.push([entry[0]]);
     }
-  } 
+  }
 
   let valueHeaders = [];
   if (isClarityAbiTuple(props.valueType)) {
@@ -154,7 +154,7 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
       entries[i].push(rawEntries[i][1]);
     }
   }
- 
+
   let columnsCount = keyHeaders.length + valueHeaders.length;
   return (
     <Root sx={{ minWidth: 700, width: 800, maxWidth: '100%' }}>
@@ -163,12 +163,12 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
           <tr>
             {
               keyHeaders.map((header, i) => {
-                return <th style={{color: grey[900]}}>{header}</th>
+                return <th style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{header}</th>
               })
             }
             {
               valueHeaders.map((header, i) => {
-                return <th style={{color: 'rgb(9, 105, 218)'}} >{header}</th>
+                return <th style={{ color: 'rgb(9, 105, 218)' }} >{header}</th>
               })
             }
           </tr>

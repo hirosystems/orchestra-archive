@@ -17,11 +17,11 @@ const DragBox = styled.div`
 `
 
 const InnerDrag = styled.div`
-    background-color: white;
+    background-color: clear;
     padding: 64px;
     border-radius: 12px;
     height: 100%;
-    border: 3px dashed rgba(9, 105, 218, 0.2);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
     text-align: center;
 
 `
@@ -34,7 +34,7 @@ const ClarinetFile = styled.img`
 `
 
 const Legend = styled.div`
-    color: rgb(100, 100, 100);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 18px;
     font-weight: 600;
     letter-space: 0.03em;
@@ -47,12 +47,12 @@ function SelectManifest() {
             <DragBox>
                 <InnerDrag>
                     <ClarinetFile src={require('../clarinet.svg').default} alt='clarinet' />
-                    <Legend>Drag and Drop your <b>Clarinet.toml</b></Legend> 
+                    <Legend>Drag and Drop your <b>Clarinet.toml</b></Legend>
                     <Legend>to get started</Legend>
                 </InnerDrag>
             </DragBox>
         </Container>
-  );
+    );
 }
 
 export default SelectManifest;

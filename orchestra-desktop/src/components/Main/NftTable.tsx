@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { styled } from '@mui/system';
 import TablePaginationUnstyled from '@mui/base/TablePaginationUnstyled';
-import { ClarityAbiType, isClarityAbiPrimitive, isClarityAbiTuple } from '../../types';
+import { ClarityAbiType, isClarityAbiTuple } from '../../types';
 
 const blue = {
   200: '#A5D8FF',
@@ -139,12 +139,12 @@ const NftTable = (props: { assetType: ClarityAbiType, tokens: Array<[string, str
     for (let entry of rawEntries) {
       entries.push([entry[0]]);
     }
-  } 
+  }
 
   for (let i = 0; i < rawEntries.length; i++) {
     entries[i].push(rawEntries[i][1]);
   }
- 
+
   let columnsCount = headers.length + 1;
   return (
     <Root sx={{ minWidth: 700, width: 800, maxWidth: '100%' }}>
@@ -153,10 +153,10 @@ const NftTable = (props: { assetType: ClarityAbiType, tokens: Array<[string, str
           <tr>
             {
               headers.map((header, i) => {
-                return <th key={i} style={{color: grey[900]}}>{header}</th>
+                return <th key={i} style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{header}</th>
               })
             }
-            <th style={{color: 'rgb(9, 105, 218)'}} >Owner</th>
+            <th style={{ color: 'rgb(9, 105, 218)' }} >Owner</th>
           </tr>
         </thead>
         <tbody>

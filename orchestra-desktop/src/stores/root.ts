@@ -1,7 +1,7 @@
-import { configureStore } from '@reduxjs/toolkit';
-import stateExplorerReducer from '../states/StateExplorerState';
-import networkingReducer from '../states/NetworkingState';
-import blocksExplorerReducer from '../states/BlocksExplorerState';
+import { configureStore } from "@reduxjs/toolkit";
+import stateExplorerReducer from "../states/StateExplorerState";
+import networkingReducer from "../states/NetworkingState";
+import blocksExplorerReducer from "../states/BlocksExplorerState";
 
 export const rootStore = configureStore({
   reducer: {

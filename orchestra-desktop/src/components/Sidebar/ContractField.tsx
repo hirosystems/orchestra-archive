@@ -7,7 +7,7 @@ import { activateField, selectActiveFieldIdentifier } from "../../states/StateEx
 const Container = styled.div`
     display: flex;
     justify-content: flex-end;
-    color: rgb(55, 53, 47);
+    color: rgb(155, 155, 155);
     text-transform: uppercase;
     font-size: 12px;
     font-weight: 600;
@@ -21,9 +21,9 @@ const Container = styled.div`
     user-select: none;
     cursor: default;
     border-radius: 4px;
-    background-color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgba(240, 240, 240, 0.7)" : "clear"};
+    background-color: ${(props: { isFieldActive: boolean }) => props.isFieldActive ? "rgba(255, 255, 255, 0.1)" : "clear"};
     &:hover {
-        background: rgba(240, 240, 240, 0.7);
+        background: rgba(255, 255, 255, 0.05);
 }
 `
 
@@ -33,10 +33,10 @@ const Tag = styled.div`
     font-size: 9px;
     font-weight: 600;
     letter-space: 0.03em;
-    padding: 4px;
-    border-radius: 4px;
+    padding: 3px;
+    border-radius: 3px;
     background-color: ${(props: { backgroundColor: string, color: string }) => props.backgroundColor};
-    margin-right: 4px;
+    margin-right: 8px;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -68,7 +68,7 @@ const ContractField = (props: { fieldName: string, fieldType?: string, contractI
         // map
         backgroundColor = "rgb(251, 239, 255)"
         color = "rgb(130, 80, 223)"
-    } else if  (props.fieldType === "nft") {
+    } else if (props.fieldType === "nft") {
         // nft
         backgroundColor = "rgb(255, 239, 247)"
         color = "rgb(191, 57, 137)"
@@ -85,7 +85,7 @@ const ContractField = (props: { fieldName: string, fieldType?: string, contractI
         dispatch(activateField(payload));
         dispatch(buildNextRequest(1));
     }
-    
+
     return (
         <Container isFieldActive={isFieldActive} onClick={handleClick}>
             {props.fieldType ? <Tag backgroundColor={backgroundColor} color={color}>{props.fieldType}</Tag> : ''}

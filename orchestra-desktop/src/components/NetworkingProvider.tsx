@@ -3,7 +3,6 @@ import { updateContracts, updateField } from "../states/StateExplorerState";
 import { useInterval } from '../hooks';
 import { selectNextRequest, StateExplorerStateUpdate, updateBootSequence, updateBlockIdentifierForContractField, buildNextRequest, updateProtocolData } from '../states/NetworkingState';
 import { useRootSelector, useRootDispatch } from "../hooks/useRootSelector";
-import { Contract } from "../types";
 import { appendBitcoinBlocks, appendStacksBlocks } from "../states/BlocksExplorerState";
 
 const WS_ADDRESS = "ws://127.0.0.1:2404";
@@ -31,16 +30,16 @@ const NetworkingProvider = (props: ISocketProvider) => {
     const onMessage = useCallback((message) => {
         const data: StateExplorerStateUpdate = JSON.parse(message?.data);
         if ('OpenProtocol' in data.update) {
-            let payload = {...data.update.OpenProtocol};
+            let payload = { ...data.update.OpenProtocol };
             if (payload.contracts.length > 0) {
                 dispatch(updateContracts(payload.contracts));
             }
             dispatch(updateProtocolData(payload));
         } else if ('BootNetwork' in data.update) {
-            let payload = {...data.update.BootNetwork};
+            let payload = { ...data.update.BootNetwork };
             dispatch(updateBootSequence(payload));
         } else if ('StateExplorerWatch' in data.update) {
-            let payload = {...data.update.StateExplorerWatch};
+            let payload = { ...data.update.StateExplorerWatch };
             if (payload.stacks_blocks.length > 0) {
                 let fieldIdentifier = `${payload.contract_identifier}::${payload.field_name}`;
                 let block = payload.stacks_blocks[payload.stacks_blocks.length - 1];

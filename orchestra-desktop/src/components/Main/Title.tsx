@@ -3,7 +3,7 @@ import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
-    color: rgb(55, 53, 47);
+    color: white;
     font-size: 40px;
     font-weight: 700;
     letter-space: 0.03em;
@@ -16,7 +16,7 @@ const Title = (props: { name: String }) => {
     function handleClick(event: MouseEvent) {
         event.preventDefault();
     }
-    
+
     return (
         <Container onClick={handleClick}>
             <Text> {props.name}</Text>

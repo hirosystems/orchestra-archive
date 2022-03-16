@@ -1,4 +1,4 @@
-import { Text, StyledOcticon } from '@primer/react'
+import { StyledOcticon } from '@primer/react'
 import { MouseEvent } from 'react';
 import styled from "styled-components";
 import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
@@ -30,7 +30,7 @@ const Controls = (props: { fieldIdentifier: string }) => {
         event.preventDefault();
         dispatch(toggleBookmark(props.fieldIdentifier));
     }
-    
+
     function handleToggleNotify(event: MouseEvent) {
         event.preventDefault();
         dispatch(toggleNotification(props.fieldIdentifier));
@@ -42,10 +42,10 @@ const Controls = (props: { fieldIdentifier: string }) => {
     return (
         <Container>
             <ActionContainer onClick={handleToggleBookmark}>
-                <StyledOcticon icon={bookmarkIcon} size={32}/>
+                <StyledOcticon icon={bookmarkIcon} size={32} sx={{ color: 'fg.onEmphasis' }} />
             </ActionContainer>
             <ActionContainer onClick={handleToggleNotify}>
-                <StyledOcticon icon={notifyIcon} size={32}/>
+                <StyledOcticon icon={notifyIcon} size={32} sx={{ color: 'fg.onEmphasis' }} />
             </ActionContainer>
         </Container>
     );

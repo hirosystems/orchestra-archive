@@ -18,21 +18,21 @@ const OutterBox = styled.div`
 `
 
 const InnerBox = styled.div`
-    background-color: white;
-    padding: 64px;
+    background-color: clear;
+    padding: 128px;
     border-radius: 12px;
     height: 100%;
-    border: 3px dashed rgba(9, 105, 218, 0.2);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
     text-align: center;
-
 `
 
 const Legend = styled.div`
-    color: rgb(100, 100, 100);
+    color: rgba(255, 255, 255, 0.6);
     font-size: 18px;
     font-weight: 600;
     letter-space: 0.03em;
     cursor: default;
+    margin-top: 20px;
 `
 
 function LoadingProtocol() {
@@ -40,12 +40,12 @@ function LoadingProtocol() {
         <Container data-tauri-drag-region>
             <OutterBox>
                 <InnerBox>
-                    <Spinner size="large" />
-                    <Legend>Loading Protocol</Legend> 
+                    <Spinner size="large" sx={{ color: "white" }} />
+                    <Legend>Loading Protocol</Legend>
                 </InnerBox>
             </OutterBox>
         </Container>
-  );
+    );
 }
 
 export default LoadingProtocol;

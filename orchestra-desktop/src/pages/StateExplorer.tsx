@@ -25,24 +25,24 @@ function StateExplorer() {
     <div>
       <Box display="flex">
         <Box p={3}>
-              <Section name="Bookmarks"/>
-                {bookmarks}
-              <Section name="Contracts"/>
-                {contractsIdentifiers.map((contractIdentifier, i) => {
-                  return <Contract key={i} contractIdentifier={contractIdentifier}/>
-                })}
-            <Section name="Wallets"/>
-            {wallets.map((wallet, i) => {
-              let fields = [];
-              fields.push(
-                <Wallet key={i} walletAddress={wallet}/>
-              )
-              return fields
-            }
-            )}
+          <Section name="Bookmarks" />
+          {bookmarks}
+          <Section name="Contracts" />
+          {contractsIdentifiers.map((contractIdentifier, i) => {
+            return <Contract key={i} contractIdentifier={contractIdentifier} />
+          })}
+          <Section name="Wallets" />
+          {wallets.map((wallet, i) => {
+            let fields = [];
+            fields.push(
+              <Wallet key={i} walletAddress={wallet} />
+            )
+            return fields
+          }
+          )}
         </Box>
         <Box flexGrow={1} p={3}>
-          <Body field={activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : undefined }/>
+          <Body field={activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : undefined} />
         </Box>
       </Box>
     </div>

@@ -1,9 +1,8 @@
 import { Text } from '@primer/react'
-import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
-    color: rgb(55, 53, 47);
+    color: white;
     font-size: 18px;
     font-weight: 600;
     letter-space: 0.03em;
@@ -12,7 +11,7 @@ export const Container = styled.div`
 `
 
 const Label = (props: { name: String }) => {
-    
+
     return (
         <Container>
             <Text> {props.name}</Text>

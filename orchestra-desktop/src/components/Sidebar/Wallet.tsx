@@ -21,9 +21,9 @@ const Wallet = (props: { walletAddress: String }) => {
 
     function handleClick(event: MouseEvent) {
         event.preventDefault();
-        alert(event.currentTarget.tagName); 
+        alert(event.currentTarget.tagName);
     }
-    
+
     return (
         <Container onClick={handleClick}>
             <Text> {props.walletAddress}</Text>

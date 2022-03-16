@@ -1,5 +1,4 @@
 import { Text } from '@primer/react'
-import { MouseEvent } from 'react';
 import styled from "styled-components"
 
 export const Container = styled.div`
@@ -12,7 +11,7 @@ export const Container = styled.div`
 `
 
 const ValueLabel = (props: { name: String }) => {
-    
+
     return (
         <Container>
             <Text> {props.name}</Text>

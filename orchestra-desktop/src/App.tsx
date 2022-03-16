@@ -13,7 +13,7 @@ function App() {
       <NetworkingProvider>
         <ThemeProvider>
           <BaseStyles>
-            <Content/>
+            <Content />
           </BaseStyles>
         </ThemeProvider>
       </NetworkingProvider>

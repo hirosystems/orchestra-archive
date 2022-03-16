@@ -1,9 +1,8 @@
 import { Text } from '@primer/react'
 import { MouseEvent } from 'react';
 import styled from "styled-components"
-import { useRootSelector, useRootDispatch } from "../../hooks/useRootSelector";
+import { useRootSelector } from "../../hooks/useRootSelector";
 import { selectContracts } from "../../states/StateExplorerState";
-import { StacksContractInterface } from '../../types';
 import { ContractField } from "./ContractField";
 
 export const Container = styled.div`
@@ -21,7 +20,7 @@ export const Container = styled.div`
     cursor: default;
 `
 export const ContractCell = styled.div`
-    color: rgb(55, 53, 47);
+    color: rgb(155, 155, 155);
     text-transform: uppercase;
     font-size: 11.5px;
     font-weight: 600;

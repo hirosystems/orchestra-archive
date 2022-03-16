@@ -1,10 +1,10 @@
-import { Text, Timeline, StyledOcticon, Link } from '@primer/react'
-import {PencilIcon } from '@primer/octicons-react'
+import { Timeline, StyledOcticon } from '@primer/react'
+import { PencilIcon } from '@primer/octicons-react'
 import styled from "styled-components"
 import { VarSetEvent } from '../../states/NetworkingState';
 
 export const Container = styled.div`
-    color: rgb(55, 53, 47);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 24px;
     font-weight: 600;
     letter-space: 0.03em;
@@ -15,10 +15,10 @@ export const Container = styled.div`
 const VarEvent = (props: { event: VarSetEvent }) => {
     return (
         <Timeline.Item>
-            <Timeline.Badge sx={{bg: 'done.emphasis'}}>
-                <StyledOcticon icon={PencilIcon} sx={{color: 'fg.onEmphasis'}} />
+            <Timeline.Badge sx={{ bg: 'done.emphasis' }}>
+                <StyledOcticon icon={PencilIcon} sx={{ color: 'fg.onEmphasis' }} />
             </Timeline.Badge>
-            <Timeline.Body>Value updated: {props.event.DataVarSetEvent.new_value}</Timeline.Body>
+            <Timeline.Body sx={{ color: 'fg.onEmphasis' }}>Value updated: {props.event.DataVarSetEvent.new_value}</Timeline.Body>
         </Timeline.Item>
     );
 };

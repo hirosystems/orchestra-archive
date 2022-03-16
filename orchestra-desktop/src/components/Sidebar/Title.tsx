@@ -16,7 +16,7 @@ const Title = (props: { name: String }) => {
     function handleClick(event: MouseEvent) {
         event.preventDefault();
     }
-    
+
     return (
         <Container onClick={handleClick}>
             <Text> {props.name}</Text>

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { styled } from '@mui/system';
 import TablePaginationUnstyled from '@mui/base/TablePaginationUnstyled';
-import { ClarityAbiType, isClarityAbiPrimitive, isClarityAbiTuple } from '../../types';
 
 const blue = {
   200: '#A5D8FF',
@@ -37,7 +36,7 @@ const Root = styled('div')(
     border-top-style: solid;
     border-top-width: 1px;
     border-top-color: rgb(233, 233, 231);
-    color: rgba(55, 53, 47, 0.6);
+    color: rgba(255, 255, 255, 0.6);
     font-size: 14px;
     text-align: left;
     padding: 6px;
@@ -45,7 +44,7 @@ const Root = styled('div')(
 
   td {
     font-size: 14px;
-    color: rgb(55, 53, 47);
+    color: rgba(255, 255, 255, 0.6);;
   }
 
   `,
@@ -125,14 +124,13 @@ const FtTable = (props: { balances: Array<[string, string]> }) => {
     setPage(newPage);
   };
 
-
   return (
     <Root sx={{ minWidth: 700, width: 800, maxWidth: '100%' }}>
       <table>
         <thead>
           <tr>
-            <th style={{color: grey[900]}}>Owner</th>
-            <th style={{color: 'rgb(9, 105, 218)'}}>Balance</th>
+            <th style={{ color: 'rgba(255, 255, 255, 0.8)' }}>Owner</th>
+            <th style={{ color: 'rgb(9, 105, 218)' }}>Balance</th>
           </tr>
         </thead>
         <tbody>
@@ -141,8 +139,8 @@ const FtTable = (props: { balances: Array<[string, string]> }) => {
             : props.balances
           ).map((balance) => (
             <tr key={balance[0]}>
-                <td>{balance[0]}</td>
-                <td>{balance[1]}</td>
+              <td>{balance[0]}</td>
+              <td>{balance[1]}</td>
             </tr>
           ))}
 

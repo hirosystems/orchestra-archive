@@ -1,7 +1,10 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { Contract, StacksContractInterface } from "../types";
 import { RootState } from "../stores/root";
-import { ContractFieldTarget, StateExplorerStateUpdateWatchData, TargetType } from "./NetworkingState";
+import {
+  ContractFieldTarget,
+  StateExplorerStateUpdateWatchData,
+} from "./NetworkingState";
 import { BlockIdentifier } from "../types/clarinet";
 
 export interface StateExplorerState {
@@ -12,7 +15,7 @@ export interface StateExplorerState {
   contracts: { [contractIdentifier: string]: StacksContractInterface };
   fields: { [fieldIdentifier: string]: StateExplorerStateUpdateWatchData };
   latestFieldsBlockIdentifiers: { [fieldIdentifier: string]: BlockIdentifier };
-  wallets: Array<string>,
+  wallets: Array<string>;
   activeContractIdentifier?: string;
   activeFieldIdentifier?: string;
 }
@@ -34,9 +37,7 @@ export const stateExplorerSlice = createSlice({
   name: "stateExplorer",
   initialState,
   reducers: {
-    activateDefaultField: (
-      state: StateExplorerState,
-    ) => {
+    activateDefaultField: (state: StateExplorerState) => {
       for (let contractIdentifier of state.contractsIdentifiers) {
         let contract = state.contracts[contractIdentifier];
         if (contract.variables.length > 0) {
@@ -82,25 +83,37 @@ export const stateExplorerSlice = createSlice({
     ) => {
       let fieldId = "";
       let lastBlockId = undefined;
-      if ('Var' in action.payload.field_values) {
+      if ("Var" in action.payload.field_values) {
         fieldId = `${action.payload.contract_identifier}::${action.payload.field_name}`;
         if (action.payload.stacks_blocks.length > 0) {
-          lastBlockId = action.payload.stacks_blocks[action.payload.stacks_blocks.length-1].block_identifier;
+          lastBlockId =
+            action.payload.stacks_blocks[
+              action.payload.stacks_blocks.length - 1
+            ].block_identifier;
         }
-      } else if ('Map' in action.payload.field_values) {
+      } else if ("Map" in action.payload.field_values) {
         fieldId = `${action.payload.contract_identifier}::${action.payload.field_name}`;
         if (action.payload.stacks_blocks.length > 0) {
-          lastBlockId = action.payload.stacks_blocks[action.payload.stacks_blocks.length-1].block_identifier;
+          lastBlockId =
+            action.payload.stacks_blocks[
+              action.payload.stacks_blocks.length - 1
+            ].block_identifier;
         }
-      } else if ('Ft' in action.payload.field_values) {
+      } else if ("Ft" in action.payload.field_values) {
         fieldId = `${action.payload.contract_identifier}::${action.payload.field_name}`;
         if (action.payload.stacks_blocks.length > 0) {
-          lastBlockId = action.payload.stacks_blocks[action.payload.stacks_blocks.length-1].block_identifier;
+          lastBlockId =
+            action.payload.stacks_blocks[
+              action.payload.stacks_blocks.length - 1
+            ].block_identifier;
         }
-      } else if ('Nft' in action.payload.field_values) {
+      } else if ("Nft" in action.payload.field_values) {
         fieldId = `${action.payload.contract_identifier}::${action.payload.field_name}`;
         if (action.payload.stacks_blocks.length > 0) {
-          lastBlockId = action.payload.stacks_blocks[action.payload.stacks_blocks.length-1].block_identifier;
+          lastBlockId =
+            action.payload.stacks_blocks[
+              action.payload.stacks_blocks.length - 1
+            ].block_identifier;
         }
       }
       state.fields[`${fieldId}`] = action.payload;
@@ -112,22 +125,44 @@ export const stateExplorerSlice = createSlice({
       state: StateExplorerState,
       action: PayloadAction<string>
     ) => {
-      state.bookmarks[action.payload] = isEnabled(state.bookmarks, action.payload) ? false : true;
+      state.bookmarks[action.payload] = isEnabled(
+        state.bookmarks,
+        action.payload
+      )
+        ? false
+        : true;
     },
     toggleNotification: (
       state: StateExplorerState,
       action: PayloadAction<string>
     ) => {
-      state.notifications[action.payload] = !isEnabled(state.notifications, action.payload);
+      state.notifications[action.payload] = !isEnabled(
+        state.notifications,
+        action.payload
+      );
     },
   },
 });
 
-function isEnabled(map: { [fieldIdentifier: string]: boolean }, fieldIdentifier?: string): boolean {
-  return fieldIdentifier !== undefined && map[fieldIdentifier] !== undefined &&  map[fieldIdentifier] === true;
+function isEnabled(
+  map: { [fieldIdentifier: string]: boolean },
+  fieldIdentifier?: string
+): boolean {
+  return (
+    fieldIdentifier !== undefined &&
+    map[fieldIdentifier] !== undefined &&
+    map[fieldIdentifier] === true
+  );
 }
 
-export const { activateDefaultField, activateField, updateContracts, updateField, toggleBookmark, toggleNotification } = stateExplorerSlice.actions;
+export const {
+  activateDefaultField,
+  activateField,
+  updateContracts,
+  updateField,
+  toggleBookmark,
+  toggleNotification,
+} = stateExplorerSlice.actions;
 
 export const selectContracts = (state: RootState) =>
   state.stateExplorer.contracts;
@@ -138,11 +173,9 @@ export const selectContractsIdentifiers = (state: RootState) =>
 export const selectBookmarks = (state: RootState) =>
   Object.entries(state.stateExplorer.bookmarks).filter(([k, v]) => v === true);
 
-export const selectWallets = (state: RootState) =>
-  state.stateExplorer.wallets;
+export const selectWallets = (state: RootState) => state.stateExplorer.wallets;
 
-export const selectFields = (state: RootState) =>
-  state.stateExplorer.fields;
+export const selectFields = (state: RootState) => state.stateExplorer.fields;
 
 export const selectActiveContractIdentifier = (state: RootState) =>
   state.stateExplorer.activeContractIdentifier;
@@ -151,12 +184,21 @@ export const selectActiveFieldIdentifier = (state: RootState) =>
   state.stateExplorer.activeFieldIdentifier;
 
 export const selectLatestKnownBlockIdentifier = (state: RootState) =>
-  state.stateExplorer.activeFieldIdentifier && state.stateExplorer.latestFieldsBlockIdentifiers[state.stateExplorer.activeFieldIdentifier]
+  state.stateExplorer.activeFieldIdentifier &&
+  state.stateExplorer.latestFieldsBlockIdentifiers[
+    state.stateExplorer.activeFieldIdentifier
+  ];
 
 export const isNotificationEnabled = (state: RootState) =>
-  isEnabled(state.stateExplorer.notifications, state.stateExplorer.activeFieldIdentifier);
+  isEnabled(
+    state.stateExplorer.notifications,
+    state.stateExplorer.activeFieldIdentifier
+  );
 
 export const isBookmarkEnabled = (state: RootState) =>
-  isEnabled(state.stateExplorer.bookmarks, state.stateExplorer.activeFieldIdentifier);
+  isEnabled(
+    state.stateExplorer.bookmarks,
+    state.stateExplorer.activeFieldIdentifier
+  );
 
 export default stateExplorerSlice.reducer;
