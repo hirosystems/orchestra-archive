@@ -1,7 +1,7 @@
 import { Timeline, StyledOcticon } from '@primer/react'
 import { PencilIcon } from '@primer/octicons-react'
 import styled from "styled-components"
-import { VarSetEvent } from '../../states/NetworkingState';
+import { DataVarSetEventFormattedValue } from '../../states/NetworkingState';
 
 export const Container = styled.div`
     color: rgba(255, 255, 255, 0.8);
@@ -12,13 +12,13 @@ export const Container = styled.div`
     cursor: default;
 `
 
-const VarEvent = (props: { event: VarSetEvent }) => {
+const VarEvent = (props: { event: DataVarSetEventFormattedValue }) => {
     return (
         <Timeline.Item>
             <Timeline.Badge sx={{ bg: 'done.emphasis' }}>
                 <StyledOcticon icon={PencilIcon} sx={{ color: 'fg.onEmphasis' }} />
             </Timeline.Badge>
-            <Timeline.Body sx={{ color: 'fg.onEmphasis' }}>Value updated: {props.event.DataVarSetEvent.new_value}</Timeline.Body>
+            <Timeline.Body sx={{ color: 'fg.onEmphasis' }}>Value updated: {props.event.value}</Timeline.Body>
         </Timeline.Item>
     );
 };

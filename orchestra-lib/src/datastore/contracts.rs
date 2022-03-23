@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use super::StorageDriver;
 use clarinet_lib::clarity_repl::clarity::util::hash::hex_bytes;
+use ripemd::{Digest, Ripemd160, Ripemd320};
 use rocksdb::{Options, DB};
 
 pub enum DBKey<'a> {
@@ -26,6 +27,11 @@ pub enum DBKey<'a> {
     NFTEvent(&'a str, u64, u32),
     NFTEventScan(&'a str),
     NFTEventScanBlock(&'a str, u64),
+}
+
+pub fn contract_db_delete_all(storage_driver: &StorageDriver, contract_id: &str) {
+    let path = contract_db_path(storage_driver, contract_id);
+    let _ = std::fs::remove_dir_all(path);
 }
 
 pub fn contract_db_path(storage_driver: &StorageDriver, contract_id: &str) -> PathBuf {
@@ -58,8 +64,10 @@ pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
             let mut prefix = format!("map::{}::{}@", contract_id, map)
                 .as_bytes()
                 .to_vec();
-            let mut entry = hex_bytes(key).unwrap();
-            prefix.append(&mut entry);
+            let mut hasher = Ripemd160::new();
+            hasher.update(key);
+            let mut result = hasher.finalize().to_vec();
+            prefix.append(&mut result);
             prefix
         }
         DBKey::MapScan(map) => format!("map::{}::{}@", contract_id, map)
@@ -69,8 +77,10 @@ pub fn db_key(key: DBKey, contract_id: &str) -> Vec<u8> {
         DBKey::FTScan(asset_id) => format!("ft::{}@", asset_id).as_bytes().to_vec(),
         DBKey::NFT(asset_id, key) => {
             let mut prefix = format!("nft::{}::id@", asset_id).as_bytes().to_vec();
-            let mut entry = hex_bytes(key).unwrap();
-            prefix.append(&mut entry);
+            let mut hasher = Ripemd160::new();
+            hasher.update(key);
+            let mut result = hasher.finalize().to_vec();
+            prefix.append(&mut result);
             prefix
         }
         DBKey::NFTScan(asset_id) => format!("nft::{}::id@", asset_id).as_bytes().to_vec(),

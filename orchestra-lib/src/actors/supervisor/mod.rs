@@ -7,13 +7,13 @@ use crate::types::{
     BitcoinPredicate, FieldValues, FieldValuesRequest, ProtocolObserverConfig, ProtocolObserverId,
     ProtocolRegistration, StacksChainPredicates, TriggerId,
 };
-use clarinet_lib::clarity_repl::clarity::analysis::ContractAnalysis;
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::ContractInterface;
+use clarinet_lib::clarity_repl::clarity::analysis::ContractAnalysis;
 use clarinet_lib::clarity_repl::clarity::diagnostic::Diagnostic;
 use clarinet_lib::clarity_repl::repl::ast::ContractAST;
 use clarinet_lib::types::{
-    BitcoinBlockData, BitcoinChainEvent, StacksBlockData, StacksChainEvent, StacksTransactionData,
-    StacksTransactionReceipt, BlockIdentifier,
+    BitcoinBlockData, BitcoinChainEvent, BlockIdentifier, StacksBlockData, StacksChainEvent,
+    StacksTransactionData, StacksTransactionReceipt,
 };
 use kompact::prelude::*;
 use rocksdb::DB;
@@ -179,20 +179,25 @@ impl Require<ProtocolObserverPort> for OrchestraSupervisor {
     fn handle(&mut self, event: ProtocolObserverEvent) -> Handled {
         match event {
             ProtocolObserverEvent::ContractsProcessed(protocol_identifier, full_analysis) => {
-                for (contract_id, (analysis, ast, interface, block_identifier)) in full_analysis.into_iter() {
+                for (contract_id, (analysis, ast, interface, block_identifier)) in
+                    full_analysis.into_iter()
+                {
                     if !self.registered_contracts.contains(&contract_id) {
                         self.registered_contracts.insert(contract_id.clone());
-                        self.start_contract_processor(contract_id.clone(), interface, analysis, ast, block_identifier);
+                        self.start_contract_processor(
+                            contract_id.clone(),
+                            interface,
+                            analysis,
+                            ast,
+                            block_identifier,
+                        );
                     }
                     let worker = match self.active_contracts_processors.get(&contract_id) {
                         Some(worker) => worker,
                         None => unreachable!(),
                     };
-        
-                    match self
-                        .contracts_processors_subscriptions
-                        .entry(contract_id)
-                    {
+
+                    match self.contracts_processors_subscriptions.entry(contract_id) {
                         Entry::Occupied(observers) => {
                             observers.into_mut().insert(protocol_identifier.clone());
                         }
@@ -242,10 +247,25 @@ impl OrchestraSupervisor {
         self.start_protocol_observer(&observer_config);
     }
 
-    pub fn start_contract_processor(&mut self, contract_id: String, interface: ContractInterface, analysis: ContractAnalysis, ast: ContractAST, block_identifier: BlockIdentifier) {
+    pub fn start_contract_processor(
+        &mut self,
+        contract_id: String,
+        interface: ContractInterface,
+        analysis: ContractAnalysis,
+        ast: ContractAST,
+        block_identifier: BlockIdentifier,
+    ) {
         let system = self.ctx.system();
-        let worker = system
-            .create(|| ContractProcessor::new(self.storage_driver.clone(), contract_id.clone(), interface, analysis, ast, block_identifier));
+        let worker = system.create(|| {
+            ContractProcessor::new(
+                self.storage_driver.clone(),
+                contract_id.clone(),
+                interface,
+                analysis,
+                ast,
+                block_identifier,
+            )
+        });
         worker.connect_to_required(self.contract_processor_port.share());
         system.start(&worker);
         self.active_contracts_processors
@@ -285,11 +305,18 @@ impl OrchestraSupervisor {
 
         let blocks = match chain_event {
             StacksChainEvent::ChainUpdatedWithBlock(update) => {
-                worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(update.new_block.clone(), update.anchored_trail.clone()));
-                vec![(update.new_block.block_identifier, update.new_block.transactions)]
-            },
+                worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(
+                    update.new_block.clone(),
+                    update.anchored_trail.clone(),
+                ));
+                vec![(
+                    update.new_block.block_identifier,
+                    update.new_block.transactions,
+                )]
+            }
             StacksChainEvent::ChainUpdatedWithReorg(update) => {
-                let blocks_ids_to_rollback = update.old_blocks
+                let blocks_ids_to_rollback = update
+                    .old_blocks
                     .into_iter()
                     .map(|(old_trail, old_block)| old_block.block_identifier)
                     .collect::<Vec<_>>();
@@ -299,19 +326,27 @@ impl OrchestraSupervisor {
                 ));
                 let mut batches = vec![];
                 for (anchored_trail, new_block) in update.new_blocks.into_iter() {
-                    worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(new_block.clone(), anchored_trail.clone()));
+                    worker.tell(BlockStoreManagerMessage::ArchiveStacksBlock(
+                        new_block.clone(),
+                        anchored_trail.clone(),
+                    ));
                     batches.push((new_block.block_identifier, new_block.transactions));
                 }
                 batches
             }
             StacksChainEvent::ChainUpdatedWithMicroblock(update) => {
                 let micro_tip = update.current_trail.microblocks.last().unwrap();
-                worker.tell(BlockStoreManagerMessage::ArchiveStacksMicroblock(micro_tip.clone()));
-                vec![(micro_tip.block_identifier.clone(), micro_tip.transactions.clone())]
-            },
+                worker.tell(BlockStoreManagerMessage::ArchiveStacksMicroblock(
+                    micro_tip.clone(),
+                ));
+                vec![(
+                    micro_tip.block_identifier.clone(),
+                    micro_tip.transactions.clone(),
+                )]
+            }
             StacksChainEvent::ChainUpdatedWithMicroblockReorg(_) => {
                 unreachable!()
-            },
+            }
         };
 
         for (block_identifier, transactions) in blocks.iter() {

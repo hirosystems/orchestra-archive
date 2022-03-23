@@ -1,8 +1,8 @@
 use crate::datastore::blocks;
 use crate::datastore::StorageDriver;
 use clarinet_lib::types::{
-    BitcoinBlockData, BlockIdentifier, StacksBlockData, StacksTransactionKind,
-    TransactionIdentifier, StacksMicroblockData, StacksMicroblocksTrail
+    BitcoinBlockData, BlockIdentifier, StacksBlockData, StacksMicroblockData,
+    StacksMicroblocksTrail, StacksTransactionKind, TransactionIdentifier,
 };
 use kompact::prelude::*;
 use opentelemetry::global;
@@ -63,7 +63,11 @@ impl BlockStoreManager {
             .unwrap();
     }
 
-    pub fn store_stacks_block(&mut self, block: StacksBlockData, anchored_trail: Option<StacksMicroblocksTrail>) {
+    pub fn store_stacks_block(
+        &mut self,
+        block: StacksBlockData,
+        anchored_trail: Option<StacksMicroblocksTrail>,
+    ) {
         let block_bytes = serde_json::to_vec(&block).expect("Unable to serialize block");
         let db = blocks::stacks_blocks_db_write(&self.storage_driver);
 
@@ -74,14 +78,16 @@ impl BlockStoreManager {
                 .get(&format!("hash:{}", block.parent_block_identifier.hash).as_bytes())
                 .expect("Unable to hit contract storage")
                 .expect("Unable to retrieve contract");
-            let mut parent_block =
-            serde_json::from_slice::<StacksBlockData>(&bytes)
+            let mut parent_block = serde_json::from_slice::<StacksBlockData>(&bytes)
                 .expect("Unable to deserialize contract");
 
             for microblock in anchored_trail.microblocks.iter() {
-                parent_block.transactions.append(&mut microblock.transactions.clone());
+                parent_block
+                    .transactions
+                    .append(&mut microblock.transactions.clone());
             }
-            let parent_block_bytes = serde_json::to_vec(&parent_block).expect("Unable to serialize block");
+            let parent_block_bytes =
+                serde_json::to_vec(&parent_block).expect("Unable to serialize block");
 
             db.put(
                 format!("hash:{}", block.parent_block_identifier.hash).as_bytes(),
@@ -150,8 +156,11 @@ impl BlockStoreManager {
             block_bytes,
         )
         .unwrap();
-        db.put("~tip".as_bytes(), microblock.block_identifier.index.to_be_bytes())
-            .unwrap();
+        db.put(
+            "~tip".as_bytes(),
+            microblock.block_identifier.index.to_be_bytes(),
+        )
+        .unwrap();
     }
 
     pub fn delete_bitcoin_blocks(&mut self, block_ids: Vec<BlockIdentifier>) {
@@ -218,7 +227,10 @@ impl Actor for BlockStoreManager {
 
         match msg {
             BlockStoreManagerMessage::ArchiveBitcoinBlock(block) => {
-                info!(self.log(), "BlockStoreManager will archive bitcoin block {}", block.block_identifier.index);
+                info!(
+                    self.log(),
+                    "BlockStoreManager will archive bitcoin block {}", block.block_identifier.index
+                );
                 self.store_bitcoin_block(block);
             }
             BlockStoreManagerMessage::RollbackBitcoinBlocks(block_ids) => {
@@ -226,7 +238,12 @@ impl Actor for BlockStoreManager {
                 self.delete_bitcoin_blocks(block_ids);
             }
             BlockStoreManagerMessage::ArchiveStacksBlock(block, anchored_trail) => {
-                info!(self.log(), "BlockStoreManager will archive stacks block {} - {}", block.block_identifier.index, block.block_identifier.hash);
+                info!(
+                    self.log(),
+                    "BlockStoreManager will archive stacks block {} - {}",
+                    block.block_identifier.index,
+                    block.block_identifier.hash
+                );
                 self.store_stacks_block(block, anchored_trail);
             }
             BlockStoreManagerMessage::RollbackStacksBlocks(block_ids) => {
@@ -234,11 +251,18 @@ impl Actor for BlockStoreManager {
                 self.delete_stacks_blocks(block_ids);
             }
             BlockStoreManagerMessage::ArchiveStacksMicroblock(microblock) => {
-                info!(self.log(), "BlockStoreManager will archive stacks microblock {}", microblock.block_identifier.index);
+                info!(
+                    self.log(),
+                    "BlockStoreManager will archive stacks microblock {}",
+                    microblock.block_identifier.index
+                );
                 self.store_stacks_microblock(microblock);
             }
             BlockStoreManagerMessage::RollbackStacksMicroblocks(microblock_ids) => {
-                info!(self.log(), "BlockStoreManager will rollback stacks microblocks");
+                info!(
+                    self.log(),
+                    "BlockStoreManager will rollback stacks microblocks"
+                );
                 self.delete_stacks_microblocks(microblock_ids);
             }
             BlockStoreManagerMessage::Exit => {}

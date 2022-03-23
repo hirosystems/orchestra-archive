@@ -3,10 +3,6 @@ import { RootState } from "../stores/root";
 import { ClarityAbiType, Contract } from "../types";
 import {
   BlockIdentifier,
-  StacksDataMapDeleteEventData,
-  StacksDataMapInsertEventData,
-  StacksDataMapUpdateEventData,
-  StacksDataVarSetEventData,
   StacksNFTBurnEventData,
   StacksNFTMintEventData,
   StacksNFTTransferEventData,
@@ -134,51 +130,121 @@ export enum FieldValues {
   NFT = "Nft",
 }
 
+export interface DataVarSetEventFormattedValue {
+  value: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface DataMapInsertEventFormattedValue {
+  inserted_key: string;
+  inserted_value: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface DataMapUpdateEventFormattedValue {
+  key: string;
+  updated_value: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface DataMapDeleteEventFormattedValue {
+  deleted_key: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface NFTTransferEventFormattedValue {
+  asset_identifier: string;
+  sender: string;
+  recipient: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface NFTMintEventFormattedValue {
+  asset_identifier: string;
+  recipient: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface NFTBurnEventFormattedValue {
+  asset_identifier: string;
+  sender: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface FTTransferEventFormattedValue {
+  sender: string;
+  recipient: string;
+  amount: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface FTMintEventFormattedValue {
+  recipient: string;
+  amount: string;
+  block_index: number;
+  event_index: number;
+}
+
+export interface FTBurnEventFormattedValue {
+  sender: string;
+  amount: string;
+  block_index: number;
+  event_index: number;
+}
+
 export type VarSetEvent = Record<
   StacksTransactionEventType.StacksDataVarSetEvent,
-  StacksDataVarSetEventData
+  DataVarSetEventFormattedValue
 >;
 export type MapInsertEvent = Record<
   StacksTransactionEventType.StacksDataMapInsertEvent,
-  StacksDataMapInsertEventData
+  DataMapInsertEventFormattedValue
 >;
 export type MapUpdateEvent = Record<
   StacksTransactionEventType.StacksDataMapUpdateEvent,
-  StacksDataMapUpdateEventData
+  DataMapUpdateEventFormattedValue
 >;
 export type MapDeleteEvent = Record<
   StacksTransactionEventType.StacksDataMapDeleteEvent,
-  StacksDataMapDeleteEventData
+  DataMapDeleteEventFormattedValue
 >;
 export type NftMintEvent = Record<
   StacksTransactionEventType.StacksNFTMintEvent,
-  StacksNFTMintEventData
+  NFTMintEventFormattedValue
 >;
 export type NftTransferEvent = Record<
   StacksTransactionEventType.StacksNFTTransferEvent,
-  StacksNFTTransferEventData
+  NFTTransferEventFormattedValue
 >;
 export type NftBurnEvent = Record<
   StacksTransactionEventType.StacksNFTBurnEvent,
-  StacksNFTBurnEventData
+  NFTBurnEventFormattedValue
 >;
 export type FtMintEvent = Record<
   StacksTransactionEventType.StacksFTMintEvent,
-  StacksFTMintEventData
+  FTMintEventFormattedValue
 >;
 export type FtTransferEvent = Record<
   StacksTransactionEventType.StacksFTTransferEvent,
-  StacksFTTransferEventData
+  FTTransferEventFormattedValue
 >;
 export type FtBurnEvent = Record<
   StacksTransactionEventType.StacksFTBurnEvent,
-  StacksFTBurnEventData
+  FTBurnEventFormattedValue
 >;
 
 export interface VarValuesData {
   value: string;
   value_type: ClarityAbiType;
-  events: Array<[VarSetEvent, number, number]>;
+  events: Array<DataVarSetEventFormattedValue>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -189,9 +255,7 @@ export interface MapValuesData {
   entries_page_index: number;
   key_type: ClarityAbiType;
   value_type: ClarityAbiType;
-  events: Array<
-    [MapInsertEvent | MapUpdateEvent | MapDeleteEvent, number, number]
-  >;
+  events: Array<MapInsertEvent | MapUpdateEvent | MapDeleteEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -201,9 +265,7 @@ export interface NftValuesData {
   tokens_page_size: number;
   tokens_page_index: number;
   token_type: any;
-  events: Array<
-    [NftMintEvent | NftTransferEvent | NftBurnEvent, number, number]
-  >;
+  events: Array<NftMintEvent | NftTransferEvent | NftBurnEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -212,7 +274,7 @@ export interface FtValuesData {
   balances: Array<[[string, string], BlockIdentifier, TransactionIdentifier]>;
   balances_page_size: number;
   balances_page_index: number;
-  events: Array<[FtMintEvent | FtTransferEvent | FtBurnEvent, number, number]>;
+  events: Array<FtMintEvent | FtTransferEvent | FtBurnEvent>;
   events_page_size: number;
   events_page_index: number;
 }
@@ -270,6 +332,7 @@ export interface NetworkingState {
   };
   requestNonce: number;
   nextRequest?: any; // todo: add typing
+  activities: Array<string>;
 }
 
 const initialState: NetworkingState = {
@@ -280,6 +343,7 @@ const initialState: NetworkingState = {
   toggleRequested: false,
   mineBlockRequested: false,
   discardBlockRequested: false,
+  activities: [],
 };
 
 export const networkingSlice = createSlice({
@@ -425,20 +489,23 @@ export const networkingSlice = createSlice({
         return;
       }
 
-      if (state.toggleRequested || state.discardBlockRequested || state.mineBlockRequested) {
-        
+      if (
+        state.toggleRequested ||
+        state.discardBlockRequested ||
+        state.mineBlockRequested
+      ) {
         let request: NetworkControlCommandData = {
           toggle_auto_mining: state.toggleRequested,
           invalidate_chain_tip: state.discardBlockRequested,
           mine_block: state.mineBlockRequested,
         };
-  
+
         state.toggleRequested = false;
         state.discardBlockRequested = false;
         state.mineBlockRequested = false;
 
         state.requestNonce += action.payload;
-  
+
         state.nextRequest = {
           protocol_id: state.protocolIdentifierWatched,
           nonce: state.requestNonce,
@@ -446,7 +513,7 @@ export const networkingSlice = createSlice({
             NetworkControl: request,
           },
         };
-  
+
         return;
       }
 
@@ -495,8 +562,8 @@ export const {
   bootNetwork,
   initiateBootSequence,
   toggleMining,
-  discardBlock, 
-  mineBlock
+  discardBlock,
+  mineBlock,
 } = networkingSlice.actions;
 
 export const selectNetworkBootStatus = (state: RootState) =>

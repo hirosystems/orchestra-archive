@@ -24,10 +24,10 @@ use orchestra_lib::clarinet_lib::types::events::{
   NFTTransferEventData, StacksTransactionEvent,
 };
 use orchestra_lib::clarinet_lib::types::{
-  BitcoinBlockData, BitcoinBlockMetadata, BitcoinChainEvent, BlockIdentifier, StacksBlockData,
+  BitcoinBlockData, BitcoinBlockMetadata, BitcoinChainEvent, BlockIdentifier,
+  ChainUpdatedWithBlockData, ChainsCoordinatorCommand, DevnetConfigFile, StacksBlockData,
   StacksChainEvent, StacksContractDeploymentData, StacksTransactionData, StacksTransactionKind,
-  StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier, DevnetConfigFile,
-  ChainUpdatedWithBlockData, ChainsCoordinatorCommand
+  StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier,
 };
 use orchestra_lib::types::{
   Contract, FieldValues, FieldValuesRequest, ProtocolObserverConfig, ProtocolObserverId,
@@ -111,7 +111,7 @@ pub enum NetworkResponse {
   StateExplorerSync(StateExplorerSyncUpdate),
   StateExplorerWatch(StateExplorerWatchUpdate),
   Noop(NoopUpdate),
-  Error(String)
+  Error(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -188,47 +188,39 @@ pub enum MiningCommand {
   InvalidateChainTip,
 }
 
-pub fn run_clock(
-  clock_cmd_rx: Receiver<MiningCommand>,
-) {
+pub fn run_clock(clock_cmd_rx: Receiver<MiningCommand>) {
   let mut block_time_interval = match clock_cmd_rx.recv() {
     Ok(MiningCommand::UpdateBlockTime(block_time)) => block_time,
-    Ok(cmd) => {
-      std::process::exit(1)
-    }
-    _ => {
-      std::process::exit(1)
-    }
+    Ok(cmd) => std::process::exit(1),
+    _ => std::process::exit(1),
   };
 
   let chains_coordinator_commands_tx = match clock_cmd_rx.recv() {
     Ok(MiningCommand::SetDevnetCommandSender(tx)) => tx,
-    _ => {
-      std::process::exit(1)
-    }
+    _ => std::process::exit(1),
   };
 
   let mut mining_paused = false;
   loop {
     for _ in 0..block_time_interval {
-      
       std::thread::sleep(std::time::Duration::from_secs(1));
 
       if let Ok(msg) = clock_cmd_rx.try_recv() {
         match msg {
           MiningCommand::MineBlock => {
             let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::MineBitcoinBlock);
-            break;  
+            break;
           }
           MiningCommand::InvalidateChainTip => {
-            let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::InvalidateBitcoinChainTip);
+            let _ = chains_coordinator_commands_tx
+              .send(ChainsCoordinatorCommand::InvalidateBitcoinChainTip);
           }
           MiningCommand::ToggleMining => {
             mining_paused = !mining_paused;
           }
           MiningCommand::UpdateBlockTime(updated_block_time) => {
             block_time_interval = updated_block_time;
-            break
+            break;
           }
           _ => {}
         }
@@ -294,8 +286,8 @@ pub fn run_backend(
                 let manifest_path = config.manifest_path.clone();
                 let mut overrides = DevnetConfigFile::default();
                 overrides.disable_bitcoin_explorer = Some(true);
-                overrides.disable_stacks_api = Some(true);
-                overrides.disable_stacks_explorer = Some(true);
+                overrides.disable_stacks_api = Some(false);
+                overrides.disable_stacks_explorer = Some(false);
                 overrides.bitcoin_controller_automining_disabled = Some(true);
 
                 let protocol_name = config.project.name.clone();
@@ -314,49 +306,57 @@ pub fn run_backend(
                   )))
                   .unwrap();
 
-                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));                
+                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));
 
                 let (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx) =
                   match integrate::run_devnet(devnet, Some(log_tx), false) {
-                    Ok((Some(devnet_events_rx), Some(terminator_tx), Some(chains_coordinator_commands_tx))) => {
-                      (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx)
-                    }
+                    Ok((
+                      Some(devnet_events_rx),
+                      Some(terminator_tx),
+                      Some(chains_coordinator_commands_tx),
+                    )) => (
+                      devnet_events_rx,
+                      terminator_tx,
+                      chains_coordinator_commands_tx,
+                    ),
                     _ => std::process::exit(1),
                   };
                 let _ = clock_cmd_tx.send(MiningCommand::UpdateBlockTime(10));
 
                 let (tx, supervisor_rx) = channel();
-  
+
                 std::thread::spawn(|| {
                   let storage_driver = StorageDriver::tmpfs();
                   println!("Working dir: {:?}", storage_driver);
                   actors::run_supervisor(storage_driver, supervisor_rx)
                     .expect("Unable to run supervisor");
                 });
-  
+
                 update.status = "Waiting for blocks".to_string();
                 backend_cmd_tx
                   .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
                     update.clone(),
                   )))
                   .unwrap();
-  
+
                 loop {
                   let event = devnet_events_rx.recv().unwrap();
                   match event {
                     DevnetEvent::BitcoinChainEvent(event) => {
-                      tx
-                        .send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(event.clone()))
-                        .unwrap();
+                      tx.send(OrchestraSupervisorMessage::ProcessBitcoinChainEvent(
+                        event.clone(),
+                      ))
+                      .unwrap();
 
                       if let BitcoinChainEvent::ChainUpdatedWithBlock(block) = event {
                         update.bitcoin_chain_height = block.block_identifier.index;
                       }
                     }
                     DevnetEvent::StacksChainEvent(event) => {
-                      tx
-                        .send(OrchestraSupervisorMessage::ProcessStacksChainEvent(event.clone()))
-                        .unwrap();
+                      tx.send(OrchestraSupervisorMessage::ProcessStacksChainEvent(
+                        event.clone(),
+                      ))
+                      .unwrap();
 
                       if let StacksChainEvent::ChainUpdatedWithBlock(event) = event {
                         update.stacks_chain_height = event.new_block.block_identifier.index;
@@ -370,7 +370,7 @@ pub fn run_backend(
                     }
                     _ => {}
                   }
-  
+
                   backend_cmd_tx
                     .send(BackendCommand::Poll(NetworkResponse::BootNetwork(
                       update.clone(),
@@ -383,17 +383,19 @@ pub fn run_backend(
                 }
 
                 // From there we can unlock the clock and start mining.
-                let _ = clock_cmd_tx.send(MiningCommand::SetDevnetCommandSender(chains_coordinator_commands_tx));
+                let _ = clock_cmd_tx.send(MiningCommand::SetDevnetCommandSender(
+                  chains_coordinator_commands_tx,
+                ));
 
                 tx.send(OrchestraSupervisorMessage::RegisterProtocolObserver(
                   config.clone(),
                 ))
                 .unwrap();
-  
+
                 let supervisor_tx_relayer = tx.clone();
-  
+
                 supervisor_tx = Some(tx);
-  
+
                 std::thread::spawn(move || loop {
                   match devnet_events_rx.recv() {
                     Ok(DevnetEvent::BitcoinChainEvent(event)) => {
@@ -412,12 +414,12 @@ pub fn run_backend(
                     }
                   }
                 });
-  
+
                 NetworkResponse::BootNetwork(update)
               } else {
                 NetworkResponse::Noop(NoopUpdate {})
-              } 
-            } else { 
+              }
+            } else {
               NetworkResponse::Noop(NoopUpdate {})
             }
           }
@@ -463,7 +465,7 @@ pub fn run_backend(
                     field_name: response.field_name.clone(),
                     field_values: response.values.clone(),
                   }),
-                  Err(err) => NetworkResponse::Error(format!("{}", err.to_string()))
+                  Err(err) => NetworkResponse::Error(format!("{}", err.to_string())),
                 }
               }
               StateExplorerWatchTarget::Wallet(wallet) => {
@@ -491,12 +493,11 @@ pub fn config_and_interface_from_clarinet_manifest_path(
 
   let manifest_path = PathBuf::from(manifest_path);
 
-  let (mut session_settings, _, mut project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+  let (mut session_settings, _, mut project_config) =
+    load_session_settings(&manifest_path, &Network::Devnet).unwrap();
 
   // todo(ludo)
-  session_settings.include_boot_contracts = vec![
-    "costs-v2".to_string(),
-  ];
+  session_settings.include_boot_contracts = vec!["costs-v2".to_string()];
 
   let mut session = Session::new(session_settings.clone());
   let analysis = match session.start() {
@@ -554,7 +555,8 @@ pub fn config_from_clarinet_manifest_path(
 
   let manifest_path = PathBuf::from(manifest_path);
 
-  let (session_settings, _, project_config) = load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+  let (session_settings, _, project_config) =
+    load_session_settings(&manifest_path, &Network::Devnet).unwrap();
 
   let mut observed_contracts = BTreeMap::new();
   for contract in session_settings.initial_contracts.iter() {
@@ -745,23 +747,21 @@ pub fn mock_backend(
               if protocol_observer_config.is_none() {
                 let (config, contracts) =
                   config_and_interface_from_clarinet_manifest_path(&state.manifest_path);
-  
+
                 let protocol_name = config.project.name.clone();
                 let update = OpenProtocolUpdate {
                   protocol_name,
                   contracts,
                 };
-  
+
                 protocol_observer_config = Some(config);
-  
+
                 NetworkResponse::OpenProtocol(update)
               } else {
                 NetworkResponse::Noop(NoopUpdate {})
               }
-            }  
-            NetworkRequest::NetworkControl(state) => {
-              NetworkResponse::Noop(NoopUpdate {})
             }
+            NetworkRequest::NetworkControl(state) => NetworkResponse::Noop(NoopUpdate {}),
             NetworkRequest::BootNetwork(boot_state) => {
               if !network_booted {
                 network_booted = true;
@@ -1023,7 +1023,7 @@ pub fn mock_backend(
         }),
       ))
       .unwrap();
-  
+
     let delay = time::Duration::from_millis(10000);
 
     thread::sleep(delay);
@@ -1037,7 +1037,6 @@ pub fn mock_backend(
 }
 
 pub fn mock_transaction(contract: &str) -> StacksTransactionData {
-
   let mut mutated_contracts_radius = HashSet::new();
   mutated_contracts_radius.insert(contract.into());
 
@@ -1152,51 +1151,43 @@ pub fn mock_transaction(contract: &str) -> StacksTransactionData {
                 StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                     asset_class_identifier: format!("{}::nft-name", contract.to_string()),
                     recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "u25000".into(),
                     hex_asset_identifier: "01000000000000000000000000000061a8".into(), // 25000
                 }),
                 StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                     asset_class_identifier: format!("{}::nft-name", contract.to_string()),
                     recipient: "ST2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGN".into(),
-                    asset_identifier: "u25001".into(),
                     hex_asset_identifier: "01000000000000000000000000000061a9".into(), // 25001
                 }),
                 StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                     asset_class_identifier: format!("{}::nft-name", contract.to_string()),
                     recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "u80000".into(),
                     hex_asset_identifier: "0100000000000000000000000000013880".into(), // u80000
                 }),
                 StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
                     asset_class_identifier: format!("{}::nft-name", contract.to_string()),
                     recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
                     sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "u8000".into(),
                     hex_asset_identifier: "0100000000000000000000000000001f40".into(), // u8000
                 }),
                 StacksTransactionEvent::NFTBurnEvent(NFTBurnEventData {
                     asset_class_identifier: format!("{}::nft-name", contract.to_string()),
                     sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "u25001".into(),
                     hex_asset_identifier: "01000000000000000000000000000061a9".into(),
                 }),
                 StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                     asset_class_identifier: format!("{}::domain", contract.to_string()),
                     recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "{ id: u1, name: 'ludovic.id' }".into(),
                     hex_asset_identifier: "0c000000020269640100000000000000000000000000000001046e616d650d0000000a6c75646f7669632e6964".into(), // { id: u1, name: "ludovic.id" }
                 }),
                 StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                     asset_class_identifier: format!("{}::domain", contract.to_string()),
                     recipient: "SM2PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
                     hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // { id: u2, name: "ludovic.btc" }
                 }),
                 StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
                     asset_class_identifier: format!("{}::domain", contract.to_string()),
                     recipient: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTP0000".into(),
                     sender: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM".into(),
-                    asset_identifier: "{ id: u2, name: 'ludovic.btc' }".into(),
                     hex_asset_identifier: "0c000000020269640100000000000000000000000000000002046e616d650d0000000b6c75646f7669632e627463".into(), // u8000
                 }),
             ],

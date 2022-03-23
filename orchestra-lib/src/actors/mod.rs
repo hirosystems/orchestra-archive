@@ -63,9 +63,9 @@ mod test {
     use crate::actors::OrchestraSupervisorMessage;
     use crate::datastore::StorageDriver;
     use clarinet_lib::types::{
-        BlockIdentifier, StacksBlockData, StacksBlockMetadata, StacksContractDeploymentData,
-        StacksTransactionData, StacksTransactionKind, StacksTransactionMetadata,
-        StacksTransactionReceipt, TransactionIdentifier, ChainUpdatedWithBlockData,
+        BlockIdentifier, ChainUpdatedWithBlockData, StacksBlockData, StacksBlockMetadata,
+        StacksContractDeploymentData, StacksTransactionData, StacksTransactionKind,
+        StacksTransactionMetadata, StacksTransactionReceipt, TransactionIdentifier,
     };
     use opentelemetry::trace::{Span, SpanContext, StatusCode};
     use opentelemetry::KeyValue;
@@ -163,7 +163,9 @@ mod test {
         }
     }
 
-    fn block_with_transactions(transactions: Vec<StacksTransactionData>) -> ChainUpdatedWithBlockData {
+    fn block_with_transactions(
+        transactions: Vec<StacksTransactionData>,
+    ) -> ChainUpdatedWithBlockData {
         let block = StacksBlockData {
             block_identifier: BlockIdentifier {
                 index: 1,
@@ -190,7 +192,6 @@ mod test {
             anchored_trail: None,
             confirmed_block: (block, None),
         }
-        
     }
 
     #[test]
@@ -322,32 +323,27 @@ mod test {
             StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                 asset_class_identifier: format!("{}::my-nft", test_contract_id),
                 recipient: "S1G2081040G2081040G2081040G208105NK8P01".into(),
-                asset_identifier: "".into(),
                 hex_asset_identifier: "A".into(),
             }),
             StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                 asset_class_identifier: format!("{}::my-nft", test_contract_id),
                 recipient: "S1G2081040G2081040G2081040G208105NK8P02".into(),
-                asset_identifier: "".into(),
                 hex_asset_identifier: "B".into(),
             }),
             StacksTransactionEvent::NFTMintEvent(NFTMintEventData {
                 asset_class_identifier: format!("{}::my-nft", test_contract_id),
                 recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
-                asset_identifier: "".into(),
                 hex_asset_identifier: "C".into(),
             }),
             StacksTransactionEvent::NFTBurnEvent(NFTBurnEventData {
                 asset_class_identifier: format!("{}::my-nft", test_contract_id),
                 sender: "S1G2081040G2081040G2081040G208105NK8P02".into(),
-                asset_identifier: "".into(),
                 hex_asset_identifier: "B".into(),
             }),
             StacksTransactionEvent::NFTTransferEvent(NFTTransferEventData {
                 asset_class_identifier: format!("{}::my-nft", test_contract_id),
                 sender: "S1G2081040G2081040G2081040G208105NK8P01".into(),
                 recipient: "S1G2081040G2081040G2081040G208105NK8P03".into(),
-                asset_identifier: "".into(),
                 hex_asset_identifier: "A".into(),
             }),
         ]);

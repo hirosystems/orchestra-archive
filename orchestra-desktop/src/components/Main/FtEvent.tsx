@@ -16,16 +16,16 @@ const FtEvent = (props: { event: FtMintEvent | FtTransferEvent | FtBurnEvent }) 
     let icon = RocketIcon;
     let color = 'success.emphasis';
     let label = '';
-    if ('FTBurnEvent' in props.event) {
+    if ('Burn' in props.event) {
         icon = FlameIcon;
         color = 'danger.emphasis';
-        label = `${props.event.FTBurnEvent.amount} tokens were burnt by ${props.event.FTBurnEvent.sender}`
-    } else if ('FTTransferEvent' in props.event) {
+        label = `${props.event.Burn.amount} tokens were burnt by ${props.event.Burn.sender}`
+    } else if ('Transfer' in props.event) {
         color = 'accent.emphasis';
         icon = PaperAirplaneIcon;
-        label = `${props.event.FTTransferEvent.amount} tokens were transfered from ${props.event.FTTransferEvent.sender} to ${props.event.FTTransferEvent.recipient}`
-    } else if ('FTMintEvent' in props.event) {
-        label = `${props.event.FTMintEvent.amount} tokens were minted for ${props.event.FTMintEvent.recipient}`
+        label = `${props.event.Transfer.amount} tokens were transfered from ${props.event.Transfer.sender} to ${props.event.Transfer.recipient}`
+    } else if ('Mint' in props.event) {
+        label = `${props.event.Mint.amount} tokens were minted for ${props.event.Mint.recipient}`
     }
 
     return (

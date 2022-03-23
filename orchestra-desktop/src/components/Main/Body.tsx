@@ -23,7 +23,7 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         // Events
         let key = 0;
         for (let event of props.field.field_values.Var.events) {
-            events.push((<VarEvent key={key += 1} event={event[0]} />))
+            events.push((<VarEvent key={key += 1} event={event} />))
         }
     } else if ("Map" in props.field.field_values) {
         let entriesCount = props.field.field_values.Map.entries.length;
@@ -37,7 +37,7 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         // Events
         let key = 0;
         for (let event of props.field.field_values.Map.events) {
-            events.push((<MapEvent key={key += 1} event={event[0]} />))
+            events.push((<MapEvent key={key += 1} event={event} />))
         }
     } else if ("Nft" in props.field.field_values) {
         let tokensCount = props.field.field_values.Nft.tokens.length;
@@ -51,7 +51,7 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         // Events
         let key = 0;
         for (let event of props.field.field_values.Nft.events) {
-            events.push((<NftEvent key={key += 1} event={event[0]} />))
+            events.push((<NftEvent key={key += 1} event={event} />))
         }
     } else if ("Ft" in props.field.field_values) {
         let balancesCount = props.field.field_values.Ft.balances.length;
@@ -65,7 +65,7 @@ const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {
         // Events
         let key = 0;
         for (let event of props.field.field_values.Ft.events) {
-            events.push((<FtEvent key={key += 1} event={event[0]} />))
+            events.push((<FtEvent key={key += 1} event={event} />))
         }
     }
 

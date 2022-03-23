@@ -1,44 +1,49 @@
 mod update_api_generator;
 mod update_state_explorer;
 
-use clarinet_lib::clarity_repl::clarity::codec::StacksMessageCodec;
-use clarinet_lib::clarity_repl::clarity::{Value};
-use clarinet_lib::clarity_repl::clarity::analysis::{ContractAnalysis};
+use clarinet_lib::clarity_repl::clarity::analysis::ContractAnalysis;
 use clarinet_lib::clarity_repl::clarity::ast::ContractAST;
+use clarinet_lib::clarity_repl::clarity::codec::StacksMessageCodec;
 use clarinet_lib::clarity_repl::clarity::diagnostic::Diagnostic;
+use clarinet_lib::clarity_repl::clarity::Value;
 pub use update_state_explorer::UpdateStateExplorer;
 
+use super::block_store_manager::ContractInstanciation;
 use crate::datastore::blocks;
 use crate::datastore::contracts::{contract_db_read, db_key, DBKey};
 use crate::datastore::StorageDriver;
 use crate::types::{
+    self, DataMapEventStoredValue, DataMapStoredEntry, DataVarSetEventFormattedValue,
+    DataVarSetEventValue, DataVarStoredValue, FTEventStoredValue, NFTEventStoredValue,
+    NFTStoredEntry,
+};
+use crate::types::{
     Contract, FieldValues, FieldValuesRequest, FieldValuesResponse, FtValues, MapValues, NftValues,
-    ProtocolObserverConfig, ProtocolRegistration, VarValues, ProtocolObserverId,
+    ProtocolObserverConfig, ProtocolObserverId, ProtocolRegistration, VarValues,
 };
-use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{
-    ContractInterface, ContractInterfaceAtomType
-};
-use clarinet_lib::types::events::StacksTransactionEvent;
-use clarinet_lib::types::{BitcoinBlockData, StacksBlockData};
-use clarinet_lib::types::{BlockIdentifier, StacksTransactionData, TransactionIdentifier};
 use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::build_contract_interface;
+use clarinet_lib::clarity_repl::clarity::analysis::contract_interface_builder::{
+    ContractInterface, ContractInterfaceAtomType,
+};
 use clarinet_lib::clarity_repl::clarity::types::{
     QualifiedContractIdentifier, StandardPrincipalData,
 };
 use clarinet_lib::clarity_repl::clarity::util::hash::hex_bytes;
 use clarinet_lib::clarity_repl::repl::settings::InitialContract;
 use clarinet_lib::clarity_repl::repl::{ClarityInterpreter, Session, SessionSettings};
-use clarinet_lib::types::events::{SmartContractEventData};
-use super::block_store_manager::ContractInstanciation;
+use clarinet_lib::types::events::SmartContractEventData;
+use clarinet_lib::types::events::StacksTransactionEvent;
+use clarinet_lib::types::{BitcoinBlockData, StacksBlockData};
+use clarinet_lib::types::{BlockIdentifier, StacksTransactionData, TransactionIdentifier};
 
 use kompact::prelude::*;
 use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer};
 use rocksdb::{Options, DB};
 use serde_json::map::Map;
+use std::collections::{BTreeMap, VecDeque};
 use std::io::Cursor;
 use std::sync::mpsc::Sender;
-use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Clone, Debug)]
 pub enum ProtocolObserverMessage {
@@ -51,7 +56,18 @@ pub enum ProtocolObserverMessage {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ProtocolObserverEvent {
-    ContractsProcessed(ProtocolObserverId, BTreeMap<String, (ContractAnalysis, ContractAST, ContractInterface, BlockIdentifier)>),
+    ContractsProcessed(
+        ProtocolObserverId,
+        BTreeMap<
+            String,
+            (
+                ContractAnalysis,
+                ContractAST,
+                ContractInterface,
+                BlockIdentifier,
+            ),
+        >,
+    ),
 }
 
 pub struct ProtocolObserverPort;
@@ -84,7 +100,6 @@ impl ProtocolObserver {
 
     pub fn build_state(&mut self) {
         let (contracts, dependencies) = {
-
             let mut working_dir = match self.storage_driver {
                 StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
             };
@@ -104,10 +119,9 @@ impl ProtocolObserver {
             let mut queue = VecDeque::new();
             for (contract_id, _) in self.config.contracts.iter() {
                 queue.push_back(contract_id.to_string());
-            } 
+            }
 
             while let Some(contract_id) = queue.pop_front() {
-        
                 if contracts.get(&contract_id).is_some() {
                     // Already handled, pursue dequeuing
                     continue;
@@ -117,49 +131,32 @@ impl ProtocolObserver {
                     .get(&contract_id.as_bytes())
                     .expect("Unable to hit contract storage")
                     .expect(&format!("Unable to retrieve contract {}", contract_id));
-                let contract_instance =
-                    serde_json::from_slice::<ContractInstanciation>(&bytes)
-                        .expect("Unable to deserialize contract");
+                let contract_instance = serde_json::from_slice::<ContractInstanciation>(&bytes)
+                    .expect("Unable to deserialize contract");
                 let deps = interpreter
-                    .detect_dependencies(
-                        contract_id.to_string(),
-                        contract_instance.code.clone(),
-                        2,
-                    )
+                    .detect_dependencies(contract_id.to_string(), contract_instance.code.clone(), 2)
                     .expect("Unable to retrieve contract dependencies")
                     .into_iter()
                     .map(|c| c.to_string())
                     .collect::<Vec<String>>();
 
                 contracts.insert(contract_id.to_string(), contract_instance.clone());
-                
-                dependencies.insert(
-                    contract_id.to_string(),
-                    deps.clone(),
-                );
+
+                dependencies.insert(contract_id.to_string(), deps.clone());
 
                 if deps.len() > 0 {
-                    info!(
-                        self.log(),
-                        "Dependencies 3: {:?} {:?}", contract_id, deps
-                    );
-    
+                    info!(self.log(), "Dependencies 3: {:?} {:?}", contract_id, deps);
+
                     for contract_id in deps.into_iter() {
                         queue.push_back(contract_id.to_string());
                     }
                     queue.push_back(contract_id.to_string());
                 } else {
-                    info!(
-                        self.log(),
-                        "Dependencies 4: {:?} {:?}", contract_id, deps
-                    );
-    
+                    info!(self.log(), "Dependencies 4: {:?} {:?}", contract_id, deps);
+
                     if !dependencies.contains_key(&contract_id) {
-                        info!(
-                            self.log(),
-                            "Dependencies 5: {:?} {:?}", contract_id, deps
-                        );
-    
+                        info!(self.log(), "Dependencies 5: {:?} {:?}", contract_id, deps);
+
                         dependencies.insert(contract_id.to_string(), vec![]);
                     }
                 }
@@ -179,7 +176,9 @@ impl ProtocolObserver {
         let mut full_analysis = BTreeMap::new();
         info!(
             self.log(),
-            "Starting analysis of protocol {} with dependencies {:?}", self.config.project.name, ordered_contracts_ids
+            "Starting analysis of protocol {} with dependencies {:?}",
+            self.config.project.name,
+            ordered_contracts_ids
         );
         for contract_id in ordered_contracts_ids.into_iter() {
             let contract_instanciation = contracts.get(&contract_id).unwrap();
@@ -192,13 +191,10 @@ impl ProtocolObserver {
                 contract_instanciation.code.clone(),
                 2,
             );
-            
+
             if !success {
                 diagnostics.append(&mut diags);
-                warn!(
-                    self.log(),
-                    "Errors {:?}", diagnostics
-                );            
+                warn!(self.log(), "Errors {:?}", diagnostics);
                 continue;
             }
 
@@ -216,17 +212,11 @@ impl ProtocolObserver {
                 Ok(analysis) => analysis,
                 Err((_, Some(diagnostic), _)) => {
                     diagnostics.push(diagnostic);
-                    warn!(
-                        self.log(),
-                        "Errors {:?}", diagnostics
-                    );            
+                    warn!(self.log(), "Errors {:?}", diagnostics);
                     continue;
                 }
                 _ => {
-                    warn!(
-                        self.log(),
-                        "Silent Error 1"
-                    );
+                    warn!(self.log(), "Silent Error 1");
                     continue;
                 }
             };
@@ -243,7 +233,15 @@ impl ProtocolObserver {
             let interface = build_contract_interface(&analysis);
             let contract_instanciation = contracts.get(&contract_id).unwrap();
 
-            full_analysis.insert(contract_id.clone(), (analysis, ast, interface, contract_instanciation.block_identifier.clone()));
+            full_analysis.insert(
+                contract_id.clone(),
+                (
+                    analysis,
+                    ast,
+                    interface,
+                    contract_instanciation.block_identifier.clone(),
+                ),
+            );
         }
 
         info!(
@@ -251,10 +249,11 @@ impl ProtocolObserver {
             "ProtocolObserver performed analysis for {}", self.config.project.name
         );
 
-
-        self.protocol_observer_port.trigger(
-            ProtocolObserverEvent::ContractsProcessed(self.config.identifier.clone(), full_analysis)
-        );
+        self.protocol_observer_port
+            .trigger(ProtocolObserverEvent::ContractsProcessed(
+                self.config.identifier.clone(),
+                full_analysis,
+            ));
     }
 }
 
@@ -313,26 +312,27 @@ impl Actor for ProtocolObserver {
                     .expect("Unable to deserialize contract");
 
                 let mut field = None;
+                // Iterate over every declared variable present in the contract interface
                 for var in interface.variables.iter() {
+                    // We found the variable we're looking for:
                     if var.name == request.field_name {
+                        // Retrieve the last value
                         let value = match db
                             .get(db_key(DBKey::Var(&var.name), &request.contract_identifier))
                         {
                             Ok(None) => Value::none(),
-                            Ok(Some(bytes)) => {
-                                match Value::consensus_deserialize(&mut Cursor::new(&bytes)) {
-                                    Ok(value) => value,
-                                    Err(_) => Value::none(),
-                                }
+                            Ok(Some(value)) => {
+                                let value = serde_json::from_slice::<DataVarStoredValue>(&value)
+                                    .expect("Unable to deserialize contract");
+                                value.get_decoded_value()
                             }
                             _ => Value::none(),
                         };
 
+                        // Retrieve the latest events
                         let events_key =
                             db_key(DBKey::VarEventScan(&var.name), &request.contract_identifier);
                         let key = String::from_utf8(events_key.to_vec()).unwrap();
-                        warn!(self.ctx().log(), "Events key: {:?}", key);
-
                         let iter = db.prefix_iterator(&events_key);
                         let mut events = vec![];
                         for (key, value) in iter {
@@ -343,16 +343,21 @@ impl Actor for ProtocolObserver {
                                 let block_index = u64::from_str_radix(order[0], 10).unwrap();
                                 let event_index = u64::from_str_radix(order[1], 10).unwrap();
 
-                                let event =
-                                    serde_json::from_slice::<StacksTransactionEvent>(&value)
-                                        .expect("Unable to deserialize contract");
-                                events.push((event, block_index, event_index));
+                                let event = serde_json::from_slice::<DataVarStoredValue>(&value)
+                                    .expect("Unable to deserialize contract");
+                                events.push(DataVarSetEventFormattedValue {
+                                    value: event.get_formatted_decoded_value(),
+                                    block_index,
+                                    event_index,
+                                });
                             }
                         }
-                        events.sort_by(|(_, b1, b2), (_, a1, a2)| {
-                            (a1 * 100 + a2).cmp(&(b1 * 100 + b2))
+
+                        // Sort events using their tx index, event index
+                        events.sort_by(|b, a| {
+                            (a.block_index * 100 + a.event_index)
+                                .cmp(&(b.block_index * 100 + b.event_index))
                         });
-                        warn!(self.ctx().log(), "Events: {:?}", events);
 
                         field = Some(FieldValues::Var(VarValues {
                             value: format!("{}", value),
@@ -365,6 +370,7 @@ impl Actor for ProtocolObserver {
                 }
 
                 if field.is_none() {
+                    // Is the field that we're looking for a map?
                     for map in interface.maps.iter() {
                         if map.name == request.field_name {
                             let value_key =
@@ -373,53 +379,15 @@ impl Actor for ProtocolObserver {
                             let mut entries = vec![];
                             for (key, value) in iter {
                                 if key.starts_with(&value_key) {
-                                    let decoded_key = match Value::consensus_deserialize(
-                                        &mut Cursor::new(&key[value_key.len()..]),
-                                    ) {
-                                        Ok(value) => value,
-                                        Err(_) => Value::none(),
-                                    };
-                                    let formatted_key = match decoded_key {
-                                        Value::Tuple(pairs) => {
-                                            let mut map = Map::new();
-                                            for (key, value) in pairs.data_map.into_iter() {
-                                                map.insert(
-                                                    key.to_string(),
-                                                    format!("{}", value).into(),
-                                                );
-                                            }
-                                            json!(map).to_string()
-                                        }
-                                        _ => format!("{}", decoded_key),
-                                    };
+                                    let entry =
+                                        serde_json::from_slice::<DataMapStoredEntry>(&value)
+                                            .expect("Unable to deserialize contract");
 
-                                    let decoded_value = match Value::consensus_deserialize(
-                                        &mut Cursor::new(&value),
-                                    ) {
-                                        Ok(decoded_value) => decoded_value,
-                                        Err(e) => {
-                                            error!(
-                                                self.ctx.log(),
-                                                "Error decoding clarity value {}", e
-                                            );
-                                            Value::none()
-                                        }
-                                    };
-                                    let formatted_value = match decoded_value {
-                                        Value::Tuple(pairs) => {
-                                            let mut map = Map::new();
-                                            for (key, value) in pairs.data_map.into_iter() {
-                                                map.insert(
-                                                    key.to_string(),
-                                                    format!("{}", value).into(),
-                                                );
-                                            }
-                                            json!(map).to_string()
-                                        }
-                                        _ => format!("{}", decoded_value),
-                                    };
                                     entries.push((
-                                        (formatted_key, formatted_value),
+                                        (
+                                            entry.get_formatted_decoded_key(),
+                                            entry.get_formatted_decoded_value(),
+                                        ),
                                         BlockIdentifier {
                                             hash: "0".into(),
                                             index: 0,
@@ -448,7 +416,7 @@ impl Actor for ProtocolObserver {
                                     let event_index = u64::from_str_radix(order[1], 10).unwrap();
 
                                     let event =
-                                        serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        serde_json::from_slice::<DataMapEventStoredValue>(&value)
                                             .expect("Unable to deserialize contract");
                                     events.push((event, block_index, event_index));
                                 }
@@ -456,7 +424,13 @@ impl Actor for ProtocolObserver {
                             events.sort_by(|(_, b1, b2), (_, a1, a2)| {
                                 (a1 * 100 + a2).cmp(&(b1 * 100 + b2))
                             });
-                            warn!(self.ctx().log(), "Events: {:?}", events);
+
+                            let events = events
+                                .into_iter()
+                                .map(|(e, block_index, event_index)| {
+                                    e.get_formatted_decoded_event(block_index, event_index)
+                                })
+                                .collect::<Vec<_>>();
 
                             field = Some(FieldValues::Map(MapValues {
                                 entries,
@@ -482,30 +456,14 @@ impl Actor for ProtocolObserver {
                             let mut tokens = vec![];
                             for (key, value) in iter {
                                 if key.starts_with(&values_key) {
-                                    let decoded_key = match Value::consensus_deserialize(
-                                        &mut Cursor::new(&key[values_key.len()..]),
-                                    ) {
-                                        Ok(value) => value,
-                                        Err(_) => Value::none(),
-                                    };
-                                    let owner = String::from_utf8(value.to_vec()).unwrap();
+                                    let value = serde_json::from_slice::<NFTStoredEntry>(&value)
+                                        .expect("Unable to deserialize NFT");
 
-                                    let asset = match decoded_key {
-                                        Value::Tuple(pairs) => {
-                                            let mut map = Map::new();
-                                            for (key, value) in pairs.data_map.into_iter() {
-                                                map.insert(
-                                                    key.to_string(),
-                                                    format!("{}", value).into(),
-                                                );
-                                            }
-                                            json!(map).to_string()
-                                        }
-                                        _ => format!("{}", decoded_key),
-                                    };
+                                    let decoded_asset_identifier =
+                                        types::decode_value(&value.hex_asset_identifier);
 
                                     tokens.push((
-                                        (asset, owner),
+                                        (decoded_asset_identifier, value.owner.to_string()),
                                         BlockIdentifier {
                                             hash: "0".into(),
                                             index: 0,
@@ -534,7 +492,7 @@ impl Actor for ProtocolObserver {
                                     let event_index = u64::from_str_radix(order[1], 10).unwrap();
 
                                     let event =
-                                        serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        serde_json::from_slice::<NFTEventStoredValue>(&value)
                                             .expect("Unable to deserialize contract");
                                     events.push((event, block_index, event_index));
                                 }
@@ -542,7 +500,13 @@ impl Actor for ProtocolObserver {
                             events.sort_by(|(_, b1, b2), (_, a1, a2)| {
                                 (a1 * 100 + a2).cmp(&(b1 * 100 + b2))
                             });
-                            warn!(self.ctx().log(), "Events: {:?}", events);
+
+                            let events = events
+                                .into_iter()
+                                .map(|(e, block_index, event_index)| {
+                                    e.get_formatted_decoded_event(block_index, event_index)
+                                })
+                                .collect::<Vec<_>>();
 
                             field = Some(FieldValues::Nft(NftValues {
                                 tokens,
@@ -598,7 +562,7 @@ impl Actor for ProtocolObserver {
                                     let event_index = u64::from_str_radix(order[1], 10).unwrap();
 
                                     let event =
-                                        serde_json::from_slice::<StacksTransactionEvent>(&value)
+                                        serde_json::from_slice::<FTEventStoredValue>(&value)
                                             .expect("Unable to deserialize contract");
                                     events.push((event, block_index, event_index));
                                 }
@@ -606,7 +570,13 @@ impl Actor for ProtocolObserver {
                             events.sort_by(|(_, b1, b2), (_, a1, a2)| {
                                 (a1 * 100 + a2).cmp(&(b1 * 100 + b2))
                             });
-                            warn!(self.ctx().log(), "Events: {:?}", events);
+
+                            let events = events
+                                .into_iter()
+                                .map(|(e, block_index, event_index)| {
+                                    e.get_formatted_decoded_event(block_index, event_index)
+                                })
+                                .collect::<Vec<_>>();
 
                             field = Some(FieldValues::Ft(FtValues {
                                 balances,

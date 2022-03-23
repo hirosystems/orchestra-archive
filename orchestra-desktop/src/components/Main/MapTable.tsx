@@ -45,7 +45,7 @@ const Root = styled('div')(
 
   td {
     font-size: 14px;
-    color: rgb(55, 53, 47);
+    color: rgba(255, 255, 255, 0.7);
   }
 
   `,
@@ -184,6 +184,7 @@ const MapTable = (props: { keyType: ClarityAbiType, valueType: ClarityAbiType, e
               ))}
             </tr>
           ))}
+
 
           {emptyRows > 0 && (
             <tr style={{ height: 41 * emptyRows }}>

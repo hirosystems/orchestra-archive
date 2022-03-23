@@ -16,14 +16,14 @@ const MapEvent = (props: { event: MapUpdateEvent | MapInsertEvent | MapDeleteEve
     let icon = DiffIcon;
     let color = 'success.emphasis';
     let label = '';
-    if ('DataMapDeleteEvent' in props.event) {
+    if ('Delete' in props.event) {
         color = 'danger.emphasis';
-        label = `Entry keyed with ${props.event.DataMapDeleteEvent.deleted_key} deleted`
-    } else if ('DataMapUpdateEvent' in props.event) {
+        label = `Entry keyed with ${props.event.Delete.deleted_key} deleted`
+    } else if ('Update' in props.event) {
         color = 'accent.emphasis';
-        label = `Entry keyed with ${props.event.DataMapUpdateEvent.key} updated with value ${props.event.DataMapUpdateEvent.new_value}`
-    } else if ('DataMapInsertEvent' in props.event) {
-        label = `Entry keyed with ${props.event.DataMapInsertEvent.inserted_key} inserted with value ${props.event.DataMapInsertEvent.inserted_value}`
+        label = `Entry keyed with ${props.event.Update.key} updated with value ${props.event.Update.updated_value}`
+    } else if ('Insert' in props.event) {
+        label = `Entry keyed with ${props.event.Insert.inserted_key} inserted with value ${props.event.Insert.inserted_value}`
     }
 
     return (
