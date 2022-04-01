@@ -1,10 +1,38 @@
 import '../App.css';
 import { ContractField, Contract, Section } from '../components/Sidebar';
 import { Body } from '../components/Main';
-import { Box } from '@primer/react'
 import { useRootSelector } from "../hooks/useRootSelector";
 import { selectFields, selectBookmarks, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
 import { Wallet } from '../components/Sidebar/Wallet';
+import styled from "styled-components";
+
+export const Container = styled.div`
+
+`
+
+export const LeftPanel = styled.div`
+position: absolute;
+left: 72px;
+width: 270px;
+top: 0;
+bottom 0;
+padding-left: 8px;
+height: 800px;
+overflow-x: hidden;
+overflow-y: auto; 
+`
+
+export const Navigation = styled.div`
+background-color: #121212;
+height: 800px;
+`
+
+export const MainPanel = styled.div`
+padding-top: 30px;
+padding-left: 300px;
+background-color: #121212;
+padding-bottom: 200px;
+`
 
 function StateExplorer() {
 
@@ -22,9 +50,9 @@ function StateExplorer() {
   const fields = useRootSelector(selectFields);
 
   return (
-    <div>
-      <Box display="flex">
-        <Box p={3}>
+    <Container>
+      <LeftPanel>
+        <Navigation>
           <Section name="Bookmarks" />
           {bookmarks}
           <Section name="Contracts" />
@@ -40,12 +68,12 @@ function StateExplorer() {
             return fields
           }
           )}
-        </Box>
-        <Box flexGrow={1} p={3}>
-          <Body field={activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : undefined} />
-        </Box>
-      </Box>
-    </div>
+        </Navigation>
+      </LeftPanel>
+      <MainPanel>
+        <Body field={activeFieldIdentifier && fields[activeFieldIdentifier] ? fields[activeFieldIdentifier] : undefined} />
+      </MainPanel>
+    </Container>
   );
 }
 

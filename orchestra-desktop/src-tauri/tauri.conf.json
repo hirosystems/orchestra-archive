@@ -46,7 +46,12 @@
       }
     },
     "updater": {
-      "active": false
+      "active": true,
+      "endpoints": [
+          "https://hirosystem-orchestra.s3.amazonaws.com/version-0.1.1.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDcxNENBMzFCNjAzODg2NTYKUldSV2hqaGdHNk5NY2RtcVJYQW5lUTNLdzVnbzVhN1pBS2ZCSkgrU2Q5N2MySUZzZ0Y0d3czZzgK"
     },
     "allowlist": {
       "all": true,

@@ -1,5 +1,9 @@
 [package]
 name = "orchestra_lib"
+authors = ["Ludo Galabru <ludo@hiro.so>"]
+license = "GPL-3.0"
+repository = "https://github.com/hirosystems/orchestra"
+homepage = "https://github.com/hirosystems/orchestra"
 version = "0.1.0"
 edition = "2021"
 

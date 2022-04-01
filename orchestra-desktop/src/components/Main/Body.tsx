@@ -4,6 +4,7 @@ import { Title, Subtitle, Label, ValueLabel, MapTable, FtTable, NftTable, VarEve
 import { StateExplorerStateUpdateWatchData } from '../../states/NetworkingState';
 
 export const Container = styled.div`
+    min-height: 1000px
 `
 
 const Body = (props: { field?: StateExplorerStateUpdateWatchData }) => {

@@ -10,55 +10,11 @@ import { StyledOcticon } from '@primer/react'
 import SelectManifest from './pages/SelectManifest'
 import LoadingProtocol from './pages/LoadingProtocol'
 
-export const Header = styled.div`
-    height: 100px;
-    display: flex;
-    flex-flow: row wrap;
-    cursor: default;
-    justify-content: flex-start;
-    gap: 48px;
-    // background-color: rgba(240, 240, 240, 0.7);
-`
-
-export const ProtocolOverview = styled.div`
-  width: 256px;
-  padding-top: 30px;
-  padding-left: 16px;
-  color: rgba(0, 0, 0, 0.7);
-  -webkit-user-select: none;      
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  cursor: default;
-`
-
-export const ProtocolLegend = styled.div`
-  text-transform: uppercase;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding-left: 6px;
-  padding-bottom: 0px;
-  margin-top: -10px;
-  letter-space: 0.03em;
-`
-
-export const ProtocolName = styled.div`
-    text-transform: uppercase;
-    text-align: left;
-    font-size: 20px;
-    font-weight: 700;
-    padding: 6px;
-    padding-right: 12px;
-    padding-top: 0px;
-    letter-space: 0.03em;
-    cursor: default;
-`
 
 export const CentringContainer = styled.div`
     display: flex;
     flex-direction: row;
     height: 100%;
-    background-color: #121212;
     justify-content: center;
 `
 
@@ -76,14 +32,19 @@ export const VerticalContainer = styled.div`
 export const TopContainer = styled.div`
     display: flex;
     flex-direction: row;
-    height: 100%;
-    background-color: #121212;
+    z-index: 0;
+    overflow-x: hidden;
+    overflow-y: auto; 
 `
 
 export const BottomContainer = styled.div`
     background-color: #181818;
-    height: 100px;
+    height: 90px;
+    width: 100%;
     border-top: 1px solid #282828;
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
 `
 
 export const Menu = styled.div`
@@ -94,21 +55,29 @@ export const Menu = styled.div`
     display: flex;
     flex-direction: column;
     gap: 40px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom 90px;
 `
 
 export const MainCanvas = styled.div`
-    flex-grow: 2;
     padding-top: 32px;
+    padding-left: 72px;
 `
 
 export const RightPanel = styled.div`
-    background-color: #000000;
+    background-color: rgba(0, 0, 0, 0.8);
     width: 300px;
     font-weight: 600;
     padding-top: 32px;
     padding-left: 16px;
     font-size: 14px;
     color: #FFFFFF;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom 90px;
 `
 
 export const Feature = styled.div`
@@ -129,7 +98,7 @@ function Content() {
     const protocolData = useRootSelector(selectProtocolData);
     let dispatch = useRootDispatch();
 
-    let subDom = (
+    let subDom = (  
         <CentringContainer data-tauri-drag-region>
             <SelectManifest data-tauri-drag-region></SelectManifest>
         </CentringContainer>
@@ -165,6 +134,7 @@ function Content() {
 
     return (
         <VerticalContainer>
+            <style>{'body { background-color: #121212; }'}</style>
             {subDom}
             <BottomContainer>
                 <ChainView />
