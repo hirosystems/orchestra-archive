@@ -2,19 +2,18 @@ import '../App.css';
 import { ContractField, Contract, Section } from '../components/Sidebar';
 import { Body } from '../components/Main';
 import { useRootSelector } from "../hooks/useRootSelector";
-import { selectFields, selectBookmarks, selectContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
+import { selectFields, selectBookmarks, selectOrderedStatefulContractsIdentifiers, selectWallets, selectActiveFieldIdentifier } from "../states/StateExplorerState";
 import { Wallet } from '../components/Sidebar/Wallet';
 import styled from "styled-components";
 
 export const Container = styled.div`
-
 `
 
 export const LeftPanel = styled.div`
 position: absolute;
 left: 72px;
 width: 270px;
-top: 0;
+top: 32px;
 bottom 0;
 padding-left: 8px;
 height: 800px;
@@ -36,11 +35,14 @@ padding-bottom: 200px;
 
 function StateExplorer() {
 
-  const contractsIdentifiers = useRootSelector(selectContractsIdentifiers);
+  const contractsIdentifiers = useRootSelector(selectOrderedStatefulContractsIdentifiers);
   const activeFieldIdentifier = useRootSelector(selectActiveFieldIdentifier);
   const activeBookmarks = useRootSelector(selectBookmarks);
 
   let bookmarks = [];
+  if (activeBookmarks.length > 0) {
+    bookmarks.push(<Section name="Bookmarks" />);
+  }
   for (let [bookmark, _] of activeBookmarks) {
     let [contractIdentifier, fieldName] = bookmark.split("::");
     bookmarks.push(<ContractField key={0} fieldName={fieldName} contractIdentifier={contractIdentifier} />);
@@ -53,9 +55,8 @@ function StateExplorer() {
     <Container>
       <LeftPanel>
         <Navigation>
-          <Section name="Bookmarks" />
           {bookmarks}
-          <Section name="Contracts" />
+          <Section name="Stateful Contracts" />
           {contractsIdentifiers.map((contractIdentifier, i) => {
             return <Contract key={i} contractIdentifier={contractIdentifier} />
           })}

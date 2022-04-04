@@ -10,6 +10,7 @@ import { BlockIdentifier } from "../types/clarinet";
 export interface StateExplorerState {
   initialized: boolean;
   contractsIdentifiers: Array<string>;
+  orderedStatefulContractsIdentifiers: Array<string>;
   bookmarks: { [fieldIdentifier: string]: boolean };
   notifications: { [fieldIdentifier: string]: boolean };
   contracts: { [contractIdentifier: string]: StacksContractInterface };
@@ -23,6 +24,7 @@ export interface StateExplorerState {
 const initialState: StateExplorerState = {
   initialized: false,
   contractsIdentifiers: [],
+  orderedStatefulContractsIdentifiers: [],
   wallets: [],
   notifications: {},
   bookmarks: {},
@@ -72,10 +74,15 @@ export const stateExplorerSlice = createSlice({
     ) => {
       state.contractsIdentifiers = [];
       state.contracts = {};
+      state.orderedStatefulContractsIdentifiers = [];
       for (const contract of action.payload) {
         state.contracts[contract.contract_identifier] = contract.interface;
         state.contractsIdentifiers.push(contract.contract_identifier);
+        if (contract.interface.fungible_tokens.length > 0 || contract.interface.non_fungible_tokens.length > 0 || contract.interface.maps.length > 0 || contract.interface.variables.length > 0) {
+          state.orderedStatefulContractsIdentifiers.push(contract.contract_identifier);
+        }
       }
+      state.orderedStatefulContractsIdentifiers.sort();
     },
     updateField: (
       state: StateExplorerState,
@@ -169,6 +176,9 @@ export const selectContracts = (state: RootState) =>
 
 export const selectContractsIdentifiers = (state: RootState) =>
   state.stateExplorer.contractsIdentifiers;
+
+export const selectOrderedStatefulContractsIdentifiers = (state: RootState) =>
+  state.stateExplorer.orderedStatefulContractsIdentifiers;
 
 export const selectBookmarks = (state: RootState) =>
   Object.entries(state.stateExplorer.bookmarks).filter(([k, v]) => v === true);

@@ -816,6 +816,13 @@ export interface DataVarField {
    * @memberof DataVarField
    */
   name: string;
+  /**
+   * Lorem ipsum
+   * @type {string}
+   * @memberof DataVarField
+   */
+  access: string;
+
 }
 
 /**

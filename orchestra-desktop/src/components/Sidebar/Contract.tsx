@@ -45,10 +45,13 @@ const Contract = (props: { contractIdentifier: string }) => {
     let index = 0;
     let cells = [];
     for (const v of contracts[props.contractIdentifier].variables) {
-        cells.push(
-            <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={props.contractIdentifier} />
-        )
-        index += 1;
+        // This key can also contain constants.
+        if (v.access === "variable") {
+            cells.push(
+                <ContractField key={index} fieldName={v.name} fieldType="var" contractIdentifier={props.contractIdentifier} />
+            )
+            index += 1;
+        }
     }
     for (const v of contracts[props.contractIdentifier].maps) {
         cells.push(
