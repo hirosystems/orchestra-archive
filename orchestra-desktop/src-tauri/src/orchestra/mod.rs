@@ -539,7 +539,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(
     })
     .collect::<_>();
 
-  let mut observed_contracts = BTreeMap::new();
+  let mut observed_contracts = Vec::new();
   for contract in session_settings.initial_contracts.iter() {
     let contract_id = QualifiedContractIdentifier::parse(&format!(
       "{}.{}",
@@ -548,13 +548,13 @@ pub fn config_and_interface_from_clarinet_manifest_path(
     ))
     .unwrap();
 
-    observed_contracts.insert(
+    observed_contracts.push((
       contract_id,
       ContractSettings {
         state_explorer_enabled: true,
         api_generator_enabled: vec![],
       },
-    );
+    ));
   }
 
   let orchestra_manifest = ProtocolObserverConfig {
@@ -584,7 +584,7 @@ pub fn config_from_clarinet_manifest_path(
   let (session_settings, _, project_config) =
     load_session_settings(&manifest_path, &Network::Devnet).unwrap();
 
-  let mut observed_contracts = BTreeMap::new();
+  let mut observed_contracts = Vec::new();
   for contract in session_settings.initial_contracts.iter() {
     let contract_id = QualifiedContractIdentifier::parse(&format!(
       "{}.{}",
@@ -593,13 +593,13 @@ pub fn config_from_clarinet_manifest_path(
     ))
     .unwrap();
 
-    observed_contracts.insert(
+    observed_contracts.push((
       contract_id,
       ContractSettings {
         state_explorer_enabled: true,
         api_generator_enabled: vec![],
       },
-    );
+    ));
   }
 
   let orchestra_manifest = ProtocolObserverConfig {

@@ -99,7 +99,7 @@ impl ProtocolObserver {
     }
 
     pub fn build_state(&mut self) {
-        let (contracts, dependencies) = {
+        let (contracts) = {
             let mut working_dir = match self.storage_driver {
                 StorageDriver::Filesystem(ref config) => config.working_dir.clone(),
             };
@@ -109,63 +109,18 @@ impl ProtocolObserver {
             // Todo: re-approach this
             let db = DB::open_for_read_only(&options, working_dir, true).unwrap();
 
-            // Get dependencies
-            let settings = clarinet_lib::clarity_repl::repl::Settings::default();
-            let mut interpreter =
-                ClarityInterpreter::new(StandardPrincipalData::transient(), settings);
-
-            let mut contracts: BTreeMap<String, ContractInstanciation> = BTreeMap::new();
-            let mut dependencies: BTreeMap<String, Vec<String>> = BTreeMap::new();
-            let mut queue = VecDeque::new();
+            let mut contracts: Vec<(String, ContractInstanciation)> = Vec::new();
             for (contract_id, _) in self.config.contracts.iter() {
-                queue.push_back(contract_id.to_string());
-            }
-
-            while let Some(contract_id) = queue.pop_front() {
-                if contracts.get(&contract_id).is_some() {
-                    // Already handled, pursue dequeuing
-                    continue;
-                }
-
                 let bytes = db
-                    .get(&contract_id.as_bytes())
+                    .get(&contract_id.to_string().as_bytes())
                     .expect("Unable to hit contract storage")
                     .expect(&format!("Unable to retrieve contract {}", contract_id));
                 let contract_instance = serde_json::from_slice::<ContractInstanciation>(&bytes)
                     .expect("Unable to deserialize contract");
-                let deps = interpreter
-                    .detect_dependencies(contract_id.to_string(), contract_instance.code.clone(), 2)
-                    .expect("Unable to retrieve contract dependencies")
-                    .into_iter()
-                    .map(|c| c.to_string())
-                    .collect::<Vec<String>>();
-
-                contracts.insert(contract_id.to_string(), contract_instance.clone());
-
-                dependencies.insert(contract_id.to_string(), deps.clone());
-
-                if deps.len() > 0 {
-                    info!(self.log(), "Dependencies 3: {:?} {:?}", contract_id, deps);
-
-                    for contract_id in deps.into_iter() {
-                        queue.push_back(contract_id.to_string());
-                    }
-                    queue.push_back(contract_id.to_string());
-                } else {
-                    info!(self.log(), "Dependencies 4: {:?} {:?}", contract_id, deps);
-
-                    if !dependencies.contains_key(&contract_id) {
-                        info!(self.log(), "Dependencies 5: {:?} {:?}", contract_id, deps);
-
-                        dependencies.insert(contract_id.to_string(), vec![]);
-                    }
-                }
+                contracts.push((contract_id.to_string(), contract_instance));
             }
-            (contracts, dependencies)
+            contracts
         };
-
-        // Order the graph
-        let ordered_contracts_ids = clarinet_lib::utils::order_contracts(&dependencies);
 
         // Build a SessionSettings struct from the contracts
         let mut settings = SessionSettings::default();
@@ -176,12 +131,10 @@ impl ProtocolObserver {
         let mut full_analysis = BTreeMap::new();
         info!(
             self.log(),
-            "Starting analysis of protocol {} with dependencies {:?}",
+            "Starting analysis of protocol {}",
             self.config.project.name,
-            ordered_contracts_ids
         );
-        for contract_id in ordered_contracts_ids.into_iter() {
-            let contract_instanciation = contracts.get(&contract_id).unwrap();
+        for (contract_id, contract_instanciation) in contracts.into_iter() {
             let mut diagnostics = vec![];
             // Extract the AST, and try to move to the next contract if we throw an error:
             // we're trying to get as many errors as possible
@@ -231,7 +184,6 @@ impl ProtocolObserver {
             );
 
             let interface = build_contract_interface(&analysis);
-            let contract_instanciation = contracts.get(&contract_id).unwrap();
 
             full_analysis.insert(
                 contract_id.clone(),

@@ -33,7 +33,7 @@ pub struct ProtocolObserverConfig {
     pub identifier: ProtocolObserverId,
     pub project: ProjectMetadata,
     pub lambdas: Vec<Lambda>,
-    pub contracts: BTreeMap<QualifiedContractIdentifier, ContractSettings>,
+    pub contracts: Vec<(QualifiedContractIdentifier, ContractSettings)>,
     pub manifest_path: PathBuf,
 }
 
