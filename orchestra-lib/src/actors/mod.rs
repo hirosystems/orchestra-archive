@@ -19,7 +19,7 @@ pub fn run_supervisor(
     supervisor_cmd_rx: Receiver<OrchestraSupervisorMessage>,
 ) -> Result<(), String> {
     match block_on(do_run_supervisor(storage_driver, supervisor_cmd_rx)) {
-        Err(_e) => std::process::exit(1),
+        Err(err) => Err(err),
         Ok(res) => Ok(res),
     }
 }

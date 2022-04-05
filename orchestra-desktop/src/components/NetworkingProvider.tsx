@@ -38,6 +38,8 @@ const NetworkingProvider = (props: ISocketProvider) => {
         } else if ('BootNetwork' in data.update) {
             let payload = { ...data.update.BootNetwork };
             dispatch(updateBootSequence(payload));
+        } else if ('FatalError' in data.update) {
+            alert(data.update.FatalError);
         } else if ('StateExplorerWatch' in data.update) {
             let payload = { ...data.update.StateExplorerWatch };
             if (payload.stacks_blocks.length > 0) {

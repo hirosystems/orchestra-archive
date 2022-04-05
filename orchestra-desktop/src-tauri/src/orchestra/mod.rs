@@ -167,6 +167,7 @@ pub struct ContractState {
 pub enum BackendCommand {
   DevnetStopped,
   ChainEvent,
+  FatalError(String),
   Poll(NetworkResponse),
   Ack(u64),
 }
@@ -176,6 +177,7 @@ pub enum FrontendCommand {
   PauseDevnet,
   GetBlock,
   PollState(PollState),
+  Terminate,
 }
 
 #[derive(Debug)]
@@ -186,18 +188,23 @@ pub enum MiningCommand {
   ToggleMining,
   MineBlock,
   InvalidateChainTip,
+  Terminate,
 }
 
 pub fn run_clock(clock_cmd_rx: Receiver<MiningCommand>) {
   let mut block_time_interval = match clock_cmd_rx.recv() {
     Ok(MiningCommand::UpdateBlockTime(block_time)) => block_time,
     Ok(cmd) => std::process::exit(1),
-    _ => std::process::exit(1),
+    _ => {
+      panic!("Clock unexpectly stopped");
+    },
   };
 
   let chains_coordinator_commands_tx = match clock_cmd_rx.recv() {
     Ok(MiningCommand::SetDevnetCommandSender(tx)) => tx,
-    _ => std::process::exit(1),
+    _ => {
+      panic!("Clock unexpectly stopped");
+    },
   };
 
   let mut mining_paused = false;
@@ -221,6 +228,9 @@ pub fn run_clock(clock_cmd_rx: Receiver<MiningCommand>) {
           MiningCommand::UpdateBlockTime(updated_block_time) => {
             block_time_interval = updated_block_time;
             break;
+          }
+          MiningCommand::Terminate => {
+            let _ = chains_coordinator_commands_tx.send(ChainsCoordinatorCommand::Terminate(true));
           }
           _ => {}
         }
@@ -284,10 +294,14 @@ pub fn run_backend(
               if let Some(ref config) = protocol_observer_config {
                 let (log_tx, log_rx) = channel();
                 let manifest_path = config.manifest_path.clone();
+                let mut working_dir = std::env::temp_dir();
+                working_dir.push("orchestra");
+        
                 let mut overrides = DevnetConfigFile::default();
                 overrides.disable_bitcoin_explorer = Some(true);
                 overrides.disable_stacks_api = Some(false);
                 overrides.disable_stacks_explorer = Some(false);
+                overrides.working_dir = Some(format!("{}", working_dir.display()));
                 overrides.bitcoin_controller_automining_disabled = Some(true);
 
                 let protocol_name = config.project.name.clone();
@@ -306,8 +320,8 @@ pub fn run_backend(
                   )))
                   .unwrap();
 
-                let devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));
-
+                let mut devnet = DevnetOrchestrator::new(manifest_path, Some(overrides));
+                devnet.can_exit = false;
                 let (devnet_events_rx, terminator_tx, chains_coordinator_commands_tx) =
                   match integrate::run_devnet(devnet, Some(log_tx), false) {
                     Ok((
@@ -319,7 +333,13 @@ pub fn run_backend(
                       terminator_tx,
                       chains_coordinator_commands_tx,
                     ),
-                    _ => std::process::exit(1),
+                    Err(message) => {
+                      backend_cmd_tx
+                        .send(BackendCommand::FatalError(message))
+                        .unwrap();
+                      return
+                    }
+                    _ => unreachable!()
                   };
                 let _ = clock_cmd_tx.send(MiningCommand::UpdateBlockTime(10));
 
@@ -367,6 +387,12 @@ pub fn run_backend(
                     }
                     DevnetEvent::Log(log) => {
                       update.status = log.message;
+                    }
+                    DevnetEvent::FatalError(message) => {
+                      backend_cmd_tx
+                        .send(BackendCommand::FatalError(message))
+                        .unwrap();
+                      return;
                     }
                     _ => {}
                   }
@@ -599,14 +625,6 @@ pub fn run_frontend(
   let server = TcpListener::bind("127.0.0.1:2404").unwrap();
   if let Some(Ok(stream)) = server.incoming().next() {
     let callback = |req: &Request, mut response: Response| {
-      println!("Received a new ws handshake");
-      println!("The request's path is: {}", req.uri().path());
-      println!("The request's headers are:");
-      for (ref header, _value) in req.headers() {
-        println!("* {}", header);
-      }
-
-      // Let's add an additional header to our response to the client.
       let _headers = response.headers_mut();
       Ok(response)
     };
@@ -670,7 +688,6 @@ pub fn run_frontend(
           consume_next_event = false;
           match response {
             BackendCommand::Ack(ack) => {
-              println!("ACK {} received!", ack);
               websocket
                 .write_message(Message::Text(
                   json!({ "msg": format!("Ack {}", ack) }).to_string(),
@@ -681,12 +698,16 @@ pub fn run_frontend(
               if let NetworkResponse::BootNetwork(ref status) = update {
                 consume_next_event = status.protocol_deployed == false;
               }
-              println!("Sending {} received!", json!({ "update": update }));
               websocket
                 .write_message(Message::Text(json!({ "update": update }).to_string()))
                 .expect("Link broken");
             }
-
+            BackendCommand::FatalError(message) => {
+              println!("Propagating Fatal Error {}", message);
+              websocket
+                .write_message(Message::Text(json!({ "update": { "FatalError": message }}).to_string()))
+                .expect("Link broken");
+            }
             BackendCommand::DevnetStopped => {}
             _ => {}
           }

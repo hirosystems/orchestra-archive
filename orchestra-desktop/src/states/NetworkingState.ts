@@ -29,13 +29,15 @@ export type StateExplorerStateUpdateInit = Record<
 >;
 export type BootNetwork = Record<"BootNetwork", BootNetworkData>;
 export type OpenProtocol = Record<"OpenProtocol", ProtocolData>;
+export type FatalError = Record<"FatalError", String>;
 
 export interface StateExplorerStateUpdate {
   update:
     | StateExplorerStateUpdateWatch
     | StateExplorerStateUpdateInit
     | BootNetwork
-    | OpenProtocol;
+    | OpenProtocol
+    | FatalError;
 }
 
 export interface StateExplorerStateUpdateInitData {
