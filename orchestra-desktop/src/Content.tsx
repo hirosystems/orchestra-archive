@@ -35,11 +35,12 @@ export const TopContainer = styled.div`
     z-index: 0;
     overflow-x: hidden;
     overflow-y: auto; 
+    -ms-overflow-style: none;
 `
 
 export const BottomContainer = styled.div`
     background-color: #181818;
-    height: 90px;
+    height: 74px;
     width: 100%;
     border-top: 1px solid #282828;
     position: absolute;
@@ -64,6 +65,7 @@ export const Menu = styled.div`
 export const MainCanvas = styled.div`
     padding-top: 32px;
     padding-left: 72px;
+    -ms-overflow-style: none;
 `
 
 export const RightPanel = styled.div`
@@ -78,6 +80,7 @@ export const RightPanel = styled.div`
     right: 0;
     top: 0;
     bottom 90px;
+    -ms-overflow-style: none;
 `
 
 export const Feature = styled.div`

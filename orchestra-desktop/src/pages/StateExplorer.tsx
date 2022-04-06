@@ -18,12 +18,14 @@ bottom 0;
 padding-left: 8px;
 height: 800px;
 overflow-x: hidden;
+-ms-overflow-style: none;
 overflow-y: auto; 
 `
 
 export const Navigation = styled.div`
 background-color: #121212;
 height: 800px;
+-ms-overflow-style: none;
 `
 
 export const MainPanel = styled.div`
@@ -31,6 +33,7 @@ padding-top: 30px;
 padding-left: 300px;
 background-color: #121212;
 padding-bottom: 200px;
+-ms-overflow-style: none;
 `
 
 function StateExplorer() {

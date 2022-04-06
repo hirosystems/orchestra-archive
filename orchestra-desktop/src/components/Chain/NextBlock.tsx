@@ -3,8 +3,8 @@ import styled from "styled-components";
 import { Spinner } from "@primer/react";
 
 export const Container = styled.div`
-    width: 64px;
-    height: 64px;
+    width: 48px;
+    height: 48px;
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 8px;
 `
