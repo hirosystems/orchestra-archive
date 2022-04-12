@@ -59,7 +59,7 @@ export const Menu = styled.div`
     position: absolute;
     left: 0;
     top: 0;
-    bottom 90px;
+    bottom 74px;
 `
 
 export const MainCanvas = styled.div`
@@ -79,7 +79,7 @@ export const RightPanel = styled.div`
     position: absolute;
     right: 0;
     top: 0;
-    bottom 90px;
+    bottom: 74px;
     -ms-overflow-style: none;
 `
 
