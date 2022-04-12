@@ -2,7 +2,7 @@
 
 use orchestra_lib::clarinet_lib::clarity_repl::repl::{Session, SessionSettings};
 use orchestra_lib::clarinet_lib::poke::load_session_settings;
-use orchestra_lib::clarinet_lib::types::Network;
+use orchestra_lib::clarinet_lib::types::StacksNetwork;
 use serde::{self, Deserialize, Serialize};
 use serde_json::json;
 
@@ -520,7 +520,7 @@ pub fn config_and_interface_from_clarinet_manifest_path(
   let manifest_path = PathBuf::from(manifest_path);
 
   let (mut session_settings, _, mut project_config) =
-    load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+    load_session_settings(&manifest_path, &StacksNetwork::Devnet).unwrap();
 
   // todo(ludo)
   session_settings.include_boot_contracts = vec!["costs-v2".to_string()];
@@ -582,7 +582,7 @@ pub fn config_from_clarinet_manifest_path(
   let manifest_path = PathBuf::from(manifest_path);
 
   let (session_settings, _, project_config) =
-    load_session_settings(&manifest_path, &Network::Devnet).unwrap();
+    load_session_settings(&manifest_path, &StacksNetwork::Devnet).unwrap();
 
   let mut observed_contracts = Vec::new();
   for contract in session_settings.initial_contracts.iter() {
