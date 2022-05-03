@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: stacks-node
+    app.kubernetes.io/part-of: orchestra
+    app.kubernetes.io/component: stacks
+    app.kubernetes.io/env: development
+  name: stacks-node
+  namespace: default
+spec:
+  ports:
+  - name: rpc
+    port: 20443
+    protocol: TCP
+    targetPort: rpc
+  - name: p2p
+    port: 20444
+    protocol: TCP
+    targetPort: p2p
+  - name: metrics
+    port: 9153
+    protocol: TCP
+    targetPort: 9153
+  selector:
+    app.kubernetes.io/name: stacks-node
+    app.kubernetes.io/part-of: orchestra
+    app.kubernetes.io/component: stacks
+    app.kubernetes.io/env: development
+  type: ClusterIP

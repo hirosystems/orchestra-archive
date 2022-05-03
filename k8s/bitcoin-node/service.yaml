@@ -1,0 +1,27 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: bitcoin-node
+    app.kubernetes.io/part-of: stacks-blockchain
+    app.kubernetes.io/component: testnet
+    app.kubernetes.io/env: development
+  name: bitcoin-node
+  namespace: default
+spec:
+  ports:
+  - name: bitcoind-rpc
+    port: 18332
+    protocol: TCP
+  - name: bitcoind-p2p
+    port: 18333
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: bitcoin-node
+    app.kubernetes.io/part-of: stacks-blockchain
+    app.kubernetes.io/component: testnet
+    app.kubernetes.io/env: development
+  type: ClusterIP

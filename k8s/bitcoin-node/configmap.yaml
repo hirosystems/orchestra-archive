@@ -1,0 +1,34 @@
+# https://riptutorial.com/bitcoin/example/26000/node-configuration
+---
+apiVersion: v1
+data:
+  bitcoin.conf: |
+    server=1
+    testnet=1
+    txindex=1
+    listen=1
+    rpcallowip=172.25.0.0/16
+    rpcallowip=10.1.0.0/16
+    rpcuser=admin
+    rpcpassword=password
+    rpcserialversion=0
+
+    maxorphantx=1
+    banscore=1
+    whitelist=172.25.0.0/16
+    whitelistalwaysrelay=1
+
+    [test]
+    bind=0.0.0.0:18333
+    rpcbind=0.0.0.0:18332
+    rpcport=18332
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: bitcoin-node-config
+    app.kubernetes.io/part-of: stacks-blockchain
+    app.kubernetes.io/env: development
+  name: bitcoin-node-config
+  namespace: default

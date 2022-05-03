@@ -1,0 +1,73 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    configmap.reloader.stakater.com/reload: bitcoin-node-config
+  labels:
+    app.kubernetes.io/name: bitcoin-node
+    app.kubernetes.io/part-of: stacks-blockchain
+    app.kubernetes.io/component: testnet
+    app.kubernetes.io/env: development
+  name: bitcoin-node
+  namespace: default
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  serviceName: "bitcoin"
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bitcoin-node
+      app.kubernetes.io/part-of: stacks-blockchain
+      app.kubernetes.io/component: testnet
+      app.kubernetes.io/env: development
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bitcoin-node
+        app.kubernetes.io/part-of: stacks-blockchain
+        app.kubernetes.io/component: testnet
+        app.kubernetes.io/env: development
+    spec:
+      containers:
+      - name: bitcoind
+        image: quay.io/blockstack/bitcoind:v0.20.99.0
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/bitcoind"]
+        args: ["-conf=/etc/bitcoin/bitcoin.conf", "-nodebuglogfile", "-pid=/run/bitcoind.pid", "-datadir=/root/.bitcoin"]
+        resources:
+          requests:
+            memory: "1.5Gi"
+            cpu: "0.25"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        ports:
+        - containerPort: 18332
+          name: bitcoind-rpc
+        - containerPort: 18333
+          name: bitcoind-p2p
+        volumeMounts:
+        - name: bitcoin-node-config
+          mountPath: /etc/bitcoin
+        - name: bitcoin-data
+          mountPath: /root/.bitcoin
+      volumes:
+      - name: bitcoin-node-config
+        configMap:
+          name: bitcoin-node-config
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/name: bitcoin-data
+        app.kubernetes.io/part-of: stacks-blockchain
+        app.kubernetes.io/component: testnet
+        app.kubernetes.io/env: development
+      name: bitcoin-data
+      namespace: default
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi
